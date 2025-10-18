@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # Application service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: ai-assistant-app
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_INDEX=${PINECONE_INDEX:-ai-assistant-docs}
+      - MONGODB_URI=mongodb://mongodb:27017/ai-assistant
+      - VALKEY_HOST=valkey
+      - VALKEY_PORT=6379
+      - VALKEY_DB=0
+      - VALKEY_TTL=3600
+    depends_on:
+      mongodb:
+        condition: service_started
+      valkey:
+        condition: service_healthy
+    networks:
+      - ai-assistant-network
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      start_period: 40s
+      retries: 3
+
+  # MongoDB service
+  mongodb:
+    image: mongo:7
+    container_name: ai-assistant-mongo
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_DATABASE: ai-assistant
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - ai-assistant-network
+
+  # Valkey (Redis) service
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    container_name: ai-assistant-valkey
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - valkey_data:/data
+    command: >
+      valkey-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    networks:
+      - ai-assistant-network
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  mongodb_data:
+    driver: local
+  valkey_data:
+    driver: local
+
+networks:
+  ai-assistant-network:
+    driver: bridge
