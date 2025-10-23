@@ -13,8 +13,13 @@
     "format:check": "prettier --check \"src/**/*.ts\"",
     "test": "vitest",
     "test:run": "vitest run",
-    "seed": "tsx scripts/seed.ts",
-    "index-doc": "tsx scripts/index-doc.ts"
+    "seed:db": "tsx scripts/ingestion/seed.ts",
+    "seed:pinecone": "tsx scripts/ingestion/index-doc.ts",
+    "seed:pinecone:all": "tsx scripts/ingestion/index-multiple-docs.ts",
+    "test:connections": "tsx scripts/testing/test-connections.ts",
+    "test:query": "tsx scripts/testing/test-query.ts",
+    "test:rag": "tsx scripts/testing/test-rag-queries.ts",
+    "check:pinecone": "tsx scripts/testing/check-pinecone.ts"
   },
   "keywords": [
     "ai",

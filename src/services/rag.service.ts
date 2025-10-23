@@ -27,7 +27,7 @@ export async function retrieveDocumentContext(query: string, topK: number = 4): 
     }
 
     const contextSnippets = matches
-      .filter((match) => match.score > 0.7)
+      .filter((match) => match.score > 0.5)
       .map((match, index) => {
         const text = match.metadata?.text || match.metadata?.content || 'No content available';
         const source = match.metadata?.source || 'Unknown source';

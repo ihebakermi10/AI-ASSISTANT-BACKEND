@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { processUserQuery } from '../../../src/services/orchestrator.service';
+import { askOrchestrator } from '../../../src/services/orchestrator.service';
 import * as openaiClient from '../../../src/infra/openai.client';
 import * as ragService from '../../../src/services/rag.service';
 import * as dbService from '../../../src/services/db.service';
@@ -49,7 +49,7 @@ describe('Orchestrator Service', () => {
         tool_calls: null,
       });
 
-      const result = await processUserQuery('What is the refund policy?');
+      const result = await askOrchestrator('What is the refund policy?');
 
       expect(ragService.retrieveDocumentContext).toHaveBeenCalledWith(
         'What is the refund policy?',
@@ -100,7 +100,7 @@ describe('Orchestrator Service', () => {
         tool_calls: null,
       });
 
-      const result = await processUserQuery('Show me orders from John Smith');
+      const result = await askOrchestrator('Show me orders from John Smith');
 
       expect(dbService.queryDatabase).toHaveBeenCalledWith({
         customerName: 'John Smith',
@@ -115,7 +115,7 @@ describe('Orchestrator Service', () => {
         tool_calls: null,
       });
 
-      const result = await processUserQuery('Hello');
+      const result = await askOrchestrator('Hello');
 
       expect(result).toBe('Hello! How can I help you today?');
       expect(ragService.retrieveDocumentContext).not.toHaveBeenCalled();
@@ -170,7 +170,7 @@ describe('Orchestrator Service', () => {
           tool_calls: null,
         });
 
-      const result = await processUserQuery('Complex query needing both tools');
+      const result = await askOrchestrator('Complex query needing both tools');
 
       expect(ragService.retrieveDocumentContext).toHaveBeenCalled();
       expect(dbService.queryDatabase).toHaveBeenCalled();
@@ -197,7 +197,7 @@ describe('Orchestrator Service', () => {
         new Error('Database error')
       );
 
-      await expect(processUserQuery('test query')).rejects.toThrow();
+      await expect(askOrchestrator('test query')).rejects.toThrow();
     });
 
     it('should handle invalid tool arguments', async () => {
@@ -216,7 +216,7 @@ describe('Orchestrator Service', () => {
         tool_calls: [mockToolCall],
       });
 
-      await expect(processUserQuery('test')).rejects.toThrow();
+      await expect(askOrchestrator('test')).rejects.toThrow();
     });
 
     it('should limit conversation history to prevent token overflow', async () => {
@@ -226,7 +226,7 @@ describe('Orchestrator Service', () => {
         tool_calls: null,
       });
 
-      await processUserQuery('test query');
+      await askOrchestrator('test query');
 
       const callArgs = vi.mocked(openaiClient.callOpenAI).mock.calls[0];
       const messages = callArgs[0];

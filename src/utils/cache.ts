@@ -74,4 +74,14 @@ export class ValkeyCache<T> implements CacheInterface<T> {
   }
 }
 
+// Cache instances with different TTLs based on data type and usage patterns
+
+// Embedding cache: 1 hour (embeddings are expensive to compute, rarely change)
 export const embeddingCache = new ValkeyCache<number[]>('embedding', 3600);
+
+// Agent response cache: 30 minutes (balance between freshness and performance)
+// Use shorter TTL for dynamic data, longer for static policies
+export const agentResponseCache = new ValkeyCache<string>('agent-response', 1800);
+
+// Query result cache: 5 minutes (for frequently accessed queries)
+export const queryResultCache = new ValkeyCache<any>('query-result', 300);
