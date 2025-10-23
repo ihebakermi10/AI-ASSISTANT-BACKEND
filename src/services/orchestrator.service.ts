@@ -1,8 +1,10 @@
-import { Agent } from '@openai/agents';
+import { Agent, run } from '@openai/agents';
 import { retrieveDocumentContextTool, queryDatabaseTool } from '@/tools/index.js';
 import { OrchestratorResult, ToolTrace } from '@/domain/types.js';
 import { logger } from '@/infra/logger.js';
 import { env } from '@/config/env.js';
+import { agentResponseCache } from '@/utils/cache.js';
+import { generateQueryCacheKey, shouldCacheQuery, getQueryCacheTTL } from '@/utils/cache-key.js';
 
 let aiAgent: Agent | null = null;
 
@@ -12,10 +14,29 @@ function getAgent(): Agent {
     aiAgent = new Agent({
       name: 'AI Assistant',
       instructions:
-        'You are a helpful AI assistant that can answer questions about company documents and query order data from the database. Choose the appropriate tool based on the user\'s question:\n\n' +
-        '- Use retrieveDocumentContext when the question is about policies, documentation, guidelines, refund procedures, product manuals, or any information that would be found in company documents.\n' +
-        '- Use queryDatabase when the question is about specific orders, customer purchases, order history, product sales, or any transactional data.\n\n' +
-        'Provide clear, helpful, and accurate answers based on the tool results.',
+        'You are a helpful AI assistant for an internal analytics platform. You have access to two specialized tools:\n\n' +
+        '## Tool Selection Guidelines:\n\n' +
+        '### Use retrieveDocumentContext for:\n' +
+        '- Policy questions (refund, warranty, cancellation, shipping, returns)\n' +
+        '- Documentation and guideline lookups\n' +
+        '- Product manuals and troubleshooting guides\n' +
+        '- Account management procedures\n' +
+        '- Support contact information\n' +
+        '- Any "What does the policy say..." or "How do I..." questions\n' +
+        '- General knowledge about company procedures\n\n' +
+        '### Use queryDatabase for:\n' +
+        '- Specific order lookups (by order ID, customer name, or date)\n' +
+        '- Customer purchase history\n' +
+        '- Order status checks\n' +
+        '- Product sales data and statistics\n' +
+        '- Transactional data queries\n' +
+        '- Any "Show me orders..." or "Find purchases..." requests\n\n' +
+        '## Important:\n' +
+        '- ONLY call a tool if the user query clearly requires it\n' +
+        '- DO NOT call both tools unless absolutely necessary\n' +
+        '- If you receive relevant context from a tool, use it to provide a complete, well-formatted answer\n' +
+        '- Always cite the source when using document context\n' +
+        '- Be concise but thorough in your responses',
       model: env.OPENAI_MODEL,
       tools: [retrieveDocumentContextTool, queryDatabaseTool],
     });
@@ -30,33 +51,97 @@ export async function askOrchestrator(userQuery: string): Promise<OrchestratorRe
   try {
     logger.info({ query: userQuery }, 'Starting orchestration with OpenAI Agent');
 
-    // Run the agent with the user query
+    // Check if query should use cache
+    const useCaching = shouldCacheQuery(userQuery);
+    let cacheKey: string | null = null;
+
+    if (useCaching) {
+      cacheKey = generateQueryCacheKey(userQuery);
+
+      // Try to get cached response
+      const cachedAnswer = await agentResponseCache.get(cacheKey);
+
+      if (cachedAnswer) {
+        const totalTime = Date.now() - startTime;
+        logger.info(
+          {
+            query: userQuery,
+            cacheHit: true,
+            totalTime,
+            answerLength: cachedAnswer.length,
+          },
+          'Returning cached response'
+        );
+
+        return { answer: cachedAnswer, trace };
+      }
+
+      logger.info({ query: userQuery, cacheKey }, 'Cache miss - running agent');
+    } else {
+      logger.info({ query: userQuery }, 'Query not cacheable - running agent');
+    }
+
+    // Run the agent with the user query using the run function from the SDK
     const agent = getAgent();
-    const result = await agent.run(userQuery);
+    const result = await run(agent, userQuery);
 
-    // Extract tool traces from the agent's run
-    if (result.messages) {
-      for (const message of result.messages) {
-        if (message.role === 'tool' && message.tool_calls) {
+    logger.info(
+      {
+        finalOutput: result.finalOutput,
+        historyLength: result.history?.length,
+      },
+      'Agent run completed'
+    );
+
+    // Extract tool traces from result.history
+    if (result.history && Array.isArray(result.history)) {
+      for (const message of result.history) {
+        if (message.role === 'assistant' && message.tool_calls) {
           for (const toolCall of message.tool_calls) {
-            const toolName = toolCall.function?.name as 'retrieveDocumentContext' | 'queryDatabase';
-            const args = toolCall.function?.arguments
-              ? JSON.parse(toolCall.function.arguments)
-              : {};
-
-            trace.push({
-              toolName,
-              arguments: args,
-              result: message.content?.substring(0, 500) || '',
-              executionTime: 0, // Agent SDK doesn't provide individual execution times
-            });
+            try {
+              const toolStartTime = Date.now();
+              trace.push({
+                toolName: toolCall.function.name as 'retrieveDocumentContext' | 'queryDatabase',
+                arguments: JSON.parse(toolCall.function.arguments || '{}'),
+                result: 'Tool executed successfully', // Placeholder as actual result is in next message
+                executionTime: 0, // Will be updated if we track timing
+              });
+              logger.info(
+                {
+                  toolName: toolCall.function.name,
+                  arguments: toolCall.function.arguments,
+                },
+                'Tool call detected in agent history'
+              );
+            } catch (error) {
+              logger.warn({ error, toolCall }, 'Failed to parse tool call from history');
+            }
           }
         }
       }
     }
 
-    // Get the final answer from the agent
-    const answer = result.finalMessage?.content || 'I could not process your request.';
+    // Extract the final answer from result.finalOutput
+    const answer =
+      typeof result.finalOutput === 'string'
+        ? result.finalOutput
+        : JSON.stringify(result.finalOutput);
+
+    // Cache the response if applicable
+    if (useCaching && cacheKey) {
+      const ttl = getQueryCacheTTL(userQuery);
+      const cached = await agentResponseCache.set(cacheKey, answer, ttl);
+
+      logger.info(
+        {
+          query: userQuery,
+          cacheKey,
+          ttl,
+          cached,
+        },
+        'Response cached'
+      );
+    }
 
     const totalTime = Date.now() - startTime;
     logger.info(
@@ -64,14 +149,24 @@ export async function askOrchestrator(userQuery: string): Promise<OrchestratorRe
         query: userQuery,
         totalTime,
         answerLength: answer.length,
-        toolsUsed: trace.length,
+        cached: useCaching,
       },
       'Orchestration completed with OpenAI Agent'
     );
 
     return { answer, trace };
-  } catch (error) {
-    logger.error({ error, query: userQuery }, 'Orchestration failed');
+  } catch (error: any) {
+    logger.error(
+      {
+        error: {
+          message: error?.message,
+          stack: error?.stack,
+          name: error?.name,
+        },
+        query: userQuery,
+      },
+      'Orchestration failed'
+    );
     throw new Error('Failed to process query');
   }
 }

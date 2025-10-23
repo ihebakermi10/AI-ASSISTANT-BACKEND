@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { connectToMongo, disconnectFromMongo } from '../src/infra/mongo.client.js';
-import { Order } from '../src/domain/order.model.js';
-import { logger } from '../src/infra/logger.js';
+import { connectToMongo, disconnectFromMongo } from '../../src/infra/mongo.client.js';
+import { Order } from '../../src/domain/order.model.js';
+import { logger } from '../../src/infra/logger.js';
 
 const sampleOrders = [
   {

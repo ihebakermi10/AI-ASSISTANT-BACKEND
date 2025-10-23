@@ -22,6 +22,7 @@ export async function createEmbedding(text: string): Promise<number[]> {
       model: 'text-embedding-3-small',
       input: text,
       encoding_format: 'float',
+      dimensions: 1024, // Match Pinecone index dimension
     });
 
     if (!response.data[0]?.embedding) {

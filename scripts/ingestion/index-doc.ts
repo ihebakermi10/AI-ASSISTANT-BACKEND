@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { createEmbedding } from '../src/infra/openai.client.js';
-import { upsertToPinecone } from '../src/infra/pinecone.client.js';
-import { logger } from '../src/infra/logger.js';
+import { createEmbedding } from '../../src/infra/openai.client.js';
+import { upsertToPinecone } from '../../src/infra/pinecone.client.js';
+import { logger } from '../../src/infra/logger.js';
 
 const sampleDocument = {
   title: 'Refund and Cancellation Policy',
