@@ -45,3 +45,4 @@ tmp/
 *.pid
 *.seed
 *.pid.lock
+*.md

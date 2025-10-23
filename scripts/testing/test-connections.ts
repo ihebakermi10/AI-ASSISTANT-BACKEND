@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { mongoClient } from '../src/infra/mongo.client.js';
-import { valkeyClient } from '../src/infra/valkey.client.js';
-import { logger } from '../src/infra/logger.js';
+import { mongoClient } from '../../src/infra/mongo.client.js';
+import { valkeyClient } from '../../src/infra/valkey.client.js';
+import { logger } from '../../src/infra/logger.js';
 
 async function testConnections(): Promise<void> {
   logger.info('Starting connection tests...');
