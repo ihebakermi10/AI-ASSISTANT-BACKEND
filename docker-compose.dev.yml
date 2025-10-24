@@ -1,0 +1,94 @@
+# ============================================
+# DEVELOPMENT ENVIRONMENT
+# ============================================
+# Usage: docker-compose -f docker-compose.dev.yml up
+#
+# Features:
+# - Hot reload enabled (source code mounted as volume)
+# - All logs visible
+# - Debug ports exposed
+# - Uses 'development' target from Dockerfile
+
+version: '3.8'
+
+services:
+  # Application service (Development mode with hot reload)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development  # Use development stage
+    container_name: ai-assistant-app-dev
+    restart: unless-stopped
+    ports:
+      - '3001:3000'  # Map host 3001 to container 3000
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_INDEX=${PINECONE_INDEX:-ai-assistant-docs}
+      - MONGODB_URI=${MONGODB_URI}
+      - VALKEY_HOST=valkey
+      - VALKEY_PORT=6379
+      - VALKEY_DB=0
+      - VALKEY_TTL=3600
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:delegated
+      - ./package.json:/app/package.json:delegated
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
+    depends_on:
+      valkey:
+        condition: service_healthy
+    networks:
+      - ai-assistant-network
+
+  # MongoDB service
+  mongodb:
+    image: mongo:7
+    container_name: ai-assistant-mongo-dev
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_DATABASE: ai-assistant
+    volumes:
+      - mongodb_dev_data:/data/db
+    command: mongod --quiet --logpath /dev/null
+    networks:
+      - ai-assistant-network
+
+  # Valkey (Redis) service
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    container_name: ai-assistant-valkey-dev
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - valkey_dev_data:/data
+    command: >
+      valkey-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    networks:
+      - ai-assistant-network
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  mongodb_dev_data:
+    driver: local
+  valkey_dev_data:
+    driver: local
+
+networks:
+  ai-assistant-network:
+    driver: bridge
