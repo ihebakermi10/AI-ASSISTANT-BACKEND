@@ -1,19 +1,24 @@
 import { createApp } from './app.js';
 import { connectToMongo } from '@/infra/mongo.client.js';
+import { initializeValkeyClient } from '@/infra/valkey.client.js';
 import { logger } from '@/infra/logger.js';
 import { env } from '@/config/env.js';
 import { validateStartup } from '@/utils/startup-validation.js';
 
 export async function startServer(): Promise<void> {
   try {
-    // Step 1: Connect to MongoDB
     logger.info('Starting server initialization...');
+
+    // Step 1: Initialize Valkey client (one time, at startup)
+    await initializeValkeyClient();
+
+    // Step 2: Connect to MongoDB
     await connectToMongo();
 
-    // Step 2: Validate all services
+    // Step 3: Validate all services
     await validateStartup();
 
-    // Step 3: Create and start the HTTP server
+    // Step 4: Create and start the HTTP server
     const app = createApp();
     const port = parseInt(env.PORT, 10);
 

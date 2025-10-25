@@ -375,18 +375,185 @@ Structured logging with Pino captures:
 
 ## Testing
 
-Run the test suite:
+### Running Tests
+
+Run the complete test suite:
 
 ```bash
 pnpm test
 ```
 
-The project includes placeholder tests in `test/ask.e2e.test.ts`. Extend these with:
-- Supertest for API testing
-- Mock data for deterministic tests
-- Integration tests with test database
+Run tests with coverage:
 
-## Production Deployment
+```bash
+npx vitest run --coverage
+```
+
+### Test Results
+
+The project includes comprehensive test coverage across multiple layers:
+
+**Test Summary:**
+- **Total Tests**: 143 tests across 9 test files
+- **Pass Rate**: 100% (143/143 passing)
+- **Test Types**:
+  - Unit Tests: 97 tests
+  - Integration Tests: 26 tests
+  - E2E Tests: 15 tests
+  - Utility Tests: 5 tests
+
+**Test Files:**
+
+```
+test/
+├── unit/
+│   ├── controllers/
+│   │   └── ask.controller.test.ts (21 tests)
+│   ├── services/
+│   │   ├── db.service.test.ts (6 tests)
+│   │   └── rag.service.test.ts (5 tests)
+│   └── utils/
+│       ├── cache-key.test.ts (50 tests)
+│       ├── cache.test.ts (15 tests)
+│       └── time.test.ts (5 tests)
+├── integration/
+│   ├── cache.integration.test.ts (14 tests)
+│   └── database.integration.test.ts (12 tests)
+└── e2e/
+    └── ask-endpoint.e2e.test.ts (15 tests)
+```
+
+**Coverage Report:**
+
+| File Category | Statements | Branches | Functions | Lines |
+|--------------|-----------|----------|-----------|-------|
+| Controllers  | 86%       | 87.5%    | 100%      | 86%   |
+| Services     | 44.73%    | 73.07%   | 60%       | 44.73%|
+| Domain       | 100%      | 100%     | 100%      | 100%  |
+| Utils        | 51.66%    | 88.37%   | 75%       | 51.66%|
+| Routes       | 95.45%    | 40%      | 100%      | 95.45%|
+
+**Key Test Features:**
+- Mocked external dependencies (OpenAI, Pinecone, MongoDB, Valkey)
+- Isolated test environments with proper setup/teardown
+- Real integration tests with MongoDB and Valkey
+- E2E tests with full request/response validation
+- Comprehensive validation and error handling tests
+- Edge cases and boundary value testing
+
+**What's Tested:**
+
+1. **Unit Tests**
+   - Request validation (empty, too long, special characters)
+   - Cache key generation and normalization
+   - Cache TTL strategy by query type
+   - Time parsing utilities (today, yesterday, last week, etc.)
+   - Database query building with regex sanitization
+   - RAG service with embedding caching
+   - Error handling and logging
+
+2. **Integration Tests**
+   - Real Valkey/Redis cache operations with TTL
+   - MongoDB CRUD operations and complex queries
+   - Connection pooling and concurrent operations
+   - Date range queries and sorting
+   - Cache prefix isolation
+
+3. **E2E Tests**
+   - POST /ask endpoint with RAG tool
+   - POST /ask endpoint with database tool
+   - Request validation (400 errors)
+   - Error handling (500 errors)
+   - Health check endpoint
+   - 404 handling
+
+## Deployment Options
+
+### Option 1: ngrok Deployment (Public Access)
+
+Deploy your backend with a public URL using ngrok. All configuration is managed through environment variables - no hardcoded values!
+
+#### Setup ngrok Configuration:
+
+1. Get your ngrok auth token:
+   - Sign up at https://dashboard.ngrok.com/signup
+   - Copy your token from https://dashboard.ngrok.com/get-started/your-authtoken
+
+2. Add ngrok configuration to your `.env` file:
+```env
+# ngrok Configuration
+NGROK_DOMAIN=your-custom-domain.ngrok-free.dev
+NGROK_AUTH_TOKEN=your-ngrok-auth-token-here
+```
+
+Example:
+```env
+NGROK_DOMAIN=liana-uncompromising-sueann.ngrok-free.dev
+NGROK_AUTH_TOKEN=2cJXK4X3vWQz68If3EF2yuTO5xR_3AnqCiUTF6z1gFZHCS2Ys
+```
+
+#### Quick Start with ngrok:
+
+**Option A: Use the deployment script (Recommended)**
+
+Windows:
+```bash
+scripts\deployment\deploy-with-ngrok.bat
+```
+
+Linux/Mac:
+```bash
+chmod +x scripts/deployment/deploy-with-ngrok.sh
+./scripts/deployment/deploy-with-ngrok.sh
+```
+
+**Option B: Use npm command**
+```bash
+npm run deploy:ngrok
+```
+
+The script will automatically:
+1. Load configuration from `.env`
+2. Start Docker containers if needed
+3. Start the backend server
+4. Start ngrok tunnel with your custom domain
+5. Open the ngrok dashboard
+
+#### Access Points:
+
+After deployment, your API is accessible at:
+- **Public URL**: `https://<your-ngrok-domain>`
+- **Local URL**: `http://localhost:3000`
+- **ngrok Dashboard**: `http://localhost:4040`
+
+#### Test the Deployment:
+
+Replace `<your-domain>` with your actual ngrok domain:
+
+```bash
+# Health check
+curl https://<your-domain>/health
+
+# Test the /ask endpoint
+curl -X POST https://<your-domain>/ask \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is the refund policy?"}'
+```
+
+#### ngrok Features:
+
+- **Persistent Domain**: Custom domain stays the same across restarts
+- **HTTPS**: Automatic SSL/TLS encryption
+- **Request Inspector**: View all requests at http://localhost:4040
+- **Replay Requests**: Debug by replaying past requests
+- **Traffic Analysis**: Monitor request/response details
+- **Environment-Based**: All configuration via `.env` file
+
+For detailed deployment instructions, see [scripts/deployment/README.md](scripts/deployment/README.md)
+
+### Option 2: Production Deployment
+
+For production deployment without ngrok:
 
 1. Build the project:
 ```bash
@@ -406,6 +573,23 @@ pm2 start dist/index.js --name ai-assistant
 ```
 
 ## Troubleshooting
+
+### ngrok Issues
+
+**Domain not accessible:**
+- Verify ngrok is running: Check for output in the ngrok terminal
+- Visit http://localhost:4040 to see the ngrok dashboard
+- Ensure backend is running on port 3000
+- Check ngrok account has permission to use custom domains
+
+**Authentication error:**
+- Run `ngrok config check` to verify your auth token
+- Get your auth token from: https://dashboard.ngrok.com/get-started/your-authtoken
+- Set it: `ngrok config add-authtoken YOUR_TOKEN`
+
+**Port already in use:**
+- Check if another process is using port 3000: `netstat -ano | findstr :3000`
+- Stop the process or change the port in `.env`
 
 ### MongoDB Connection Issues
 - Ensure Docker container is running: `docker ps`

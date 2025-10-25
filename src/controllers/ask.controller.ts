@@ -58,7 +58,7 @@ export async function handleAsk(ctx: Context): Promise<void> {
     ctx.status = 500;
     ctx.body = {
       error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'An unexpected error occurred',
+      message: 'An unexpected error occurred',
     };
   }
 }

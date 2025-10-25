@@ -12,10 +12,7 @@ describe('Database Integration Tests', () => {
 
   afterAll(async () => {
     // Cleanup and disconnect
-    const db = mongoClient.getDb();
-    if (db) {
-      await db.dropDatabase();
-    }
+    await Order.deleteMany({});
     await mongoClient.disconnect();
   });
 
@@ -94,8 +91,9 @@ describe('Database Integration Tests', () => {
 
       expect(results.length).toBeGreaterThan(0);
       results.forEach((order) => {
-        expect(new Date(order.orderDate)).toBeGreaterThanOrEqual(startDate);
-        expect(new Date(order.orderDate)).toBeLessThanOrEqual(endDate);
+        const orderDate = new Date(order.orderDate).getTime();
+        expect(orderDate).toBeGreaterThanOrEqual(startDate.getTime());
+        expect(orderDate).toBeLessThanOrEqual(endDate.getTime());
       });
     });
 
@@ -132,10 +130,20 @@ describe('Database Integration Tests', () => {
       await Order.create({
         orderId: 'ORD-SPECIAL',
         customerName: 'John.Smith*',
+        email: 'john.smith@example.com',
         product: 'Test Product',
+        quantity: 1,
+        price: 99.99,
         totalAmount: 99.99,
         status: 'completed',
         orderDate: new Date(),
+        shippingAddress: {
+          street: '123 Main St',
+          city: 'New York',
+          state: 'NY',
+          zipCode: '10001',
+          country: 'USA',
+        },
       });
 
       const results = await queryDatabase({ customerName: 'John.Smith*' });

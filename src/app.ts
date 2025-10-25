@@ -1,13 +1,44 @@
 import Koa from 'koa';
 import bodyParser from 'koa-bodyparser';
+import cors from '@koa/cors';
 import { koaSwagger } from 'koa2-swagger-ui';
 import askRouter from '@/routes/ask.route.js';
 import healthRouter from '@/routes/health.route.js';
 import { swaggerSpec } from '@/config/swagger.js';
 import { logger } from '@/infra/logger.js';
+import { env } from '@/config/env.js';
 
 export function createApp(): Koa {
   const app = new Koa();
+
+  // CORS middleware - Enable for all origins in staging/development
+  // In production, restrict to specific domains
+  app.use(
+    cors({
+      origin: (ctx: Koa.Context) => {
+        // Allow all origins in development and staging
+        if (env.NODE_ENV === 'development' || env.NODE_ENV === 'staging') {
+          return ctx.get('Origin') || '*';
+        }
+        // In production, allow only specific domains
+        const allowedOrigins = [
+          env.PUBLIC_URL,
+          'http://localhost:3000',
+          'http://127.0.0.1:3000',
+        ].filter(Boolean) as string[];
+
+        const origin = ctx.get('Origin');
+        if (allowedOrigins.includes(origin)) {
+          return origin;
+        }
+        return allowedOrigins[0] || '*';
+      },
+      credentials: true,
+      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Authorization', 'Accept'],
+      exposeHeaders: ['Content-Length', 'Date', 'X-Request-Id'],
+    })
+  );
 
   app.use(async (ctx, next) => {
     const start = Date.now();
@@ -55,7 +86,17 @@ export function createApp(): Koa {
       routePrefix: '/docs',
       swaggerOptions: {
         spec: swaggerSpec as Record<string, unknown>,
+        // Enable "Try it out" by default
+        defaultModelsExpandDepth: '1',
+        defaultModelExpandDepth: '1',
+        docExpansion: 'list',
+        filter: true as any,
+        showRequestHeaders: true as any,
+        supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+        // Auto-select first server (ngrok URL in staging)
+        tryItOutEnabled: true as any,
       },
+      hideTopbar: false,
     })
   );
 
@@ -69,10 +110,11 @@ export function createApp(): Koa {
     await next();
   });
 
-  // Register routes
+  // Register routes with v1 prefix
   app.use(healthRouter.routes());
   app.use(healthRouter.allowedMethods());
 
+  // API v1 routes
   app.use(askRouter.routes());
   app.use(askRouter.allowedMethods());
 

@@ -35,6 +35,7 @@ export default defineConfig({
         singleFork: false,
       },
     },
+    fileParallelism: false, // Run test files sequentially to avoid database race conditions
     // Separate test types for better organization
     include: ['test/**/*.test.ts'],
     exclude: ['node_modules/**', 'dist/**'],

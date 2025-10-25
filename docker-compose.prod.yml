@@ -1,0 +1,146 @@
+# ============================================
+# PRODUCTION ENVIRONMENT
+# ============================================
+# Usage: docker-compose -f docker-compose.prod.yml up -d --build
+#
+# Features:
+# - Minimal production build
+# - Non-root user (security)
+# - Resource limits
+# - Automatic restart
+# - Uses 'production' target from Dockerfile
+
+version: '3.8'
+
+services:
+  # Application service (Production mode)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production  # Use production stage
+      args:
+        BUILD_DATE: ${BUILD_DATE:-}
+        VERSION: ${VERSION:-v1.0.0}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    image: ai-assistant-api:${VERSION:-v1.0.0}
+    container_name: ai-assistant-app-prod
+    restart: always
+    ports:
+      - '${PORT:-3000}:3000'
+    environment:
+      # Server configuration
+      - NODE_ENV=production
+      - PORT=${PORT:-3000}
+
+      # Deployment configuration
+      - PUBLIC_URL=${PUBLIC_URL}
+      - API_BASE_URL=${API_BASE_URL:-}
+
+      # OpenAI configuration
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-2024-05-13}
+
+      # Pinecone configuration
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_INDEX=${PINECONE_INDEX}
+
+      # MongoDB configuration (Use managed service in production)
+      - MONGODB_URI=${MONGODB_URI}
+
+      # Valkey configuration (Use managed service in production)
+      - VALKEY_HOST=${VALKEY_HOST}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - VALKEY_PASSWORD=${VALKEY_PASSWORD:-}
+      - VALKEY_DB=${VALKEY_DB:-0}
+      - VALKEY_TTL=${VALKEY_TTL:-3600}
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    networks:
+      - ai-assistant-network
+    labels:
+      - "environment=production"
+      - "version=${VERSION:-v1.0.0}"
+      - "git.commit=${GIT_COMMIT:-unknown}"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # NOTE: In production, use managed services:
+  # - MongoDB Atlas or AWS DocumentDB
+  # - AWS ElastiCache or Redis Cloud
+  #
+  # If you want to run MongoDB/Valkey in production,
+  # uncomment the services below and configure properly
+
+  # mongodb:
+  #   image: mongo:7
+  #   container_name: ai-assistant-mongo-prod
+  #   restart: always
+  #   ports:
+  #     - '27017:27017'
+  #   environment:
+  #     MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+  #     MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+  #     MONGO_INITDB_DATABASE: ai-assistant
+  #   volumes:
+  #     - mongodb_prod_data:/data/db
+  #   command: mongod --quiet --logpath /dev/null
+  #   networks:
+  #     - ai-assistant-network
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '1.0'
+  #         memory: 1024M
+
+  # valkey:
+  #   image: valkey/valkey:7.2-alpine
+  #   container_name: ai-assistant-valkey-prod
+  #   restart: always
+  #   ports:
+  #     - '6379:6379'
+  #   volumes:
+  #     - valkey_prod_data:/data
+  #   command: >
+  #     valkey-server
+  #     --appendonly yes
+  #     --maxmemory 1gb
+  #     --maxmemory-policy allkeys-lru
+  #     --requirepass ${VALKEY_PASSWORD}
+  #   networks:
+  #     - ai-assistant-network
+  #   healthcheck:
+  #     test: ['CMD', 'valkey-cli', '--pass', '${VALKEY_PASSWORD}', 'ping']
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '0.5'
+  #         memory: 512M
+
+volumes:
+  mongodb_prod_data:
+    driver: local
+  valkey_prod_data:
+    driver: local
+
+networks:
+  ai-assistant-network:
+    driver: bridge

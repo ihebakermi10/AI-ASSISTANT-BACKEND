@@ -1,5 +1,47 @@
 import swaggerJsdoc from 'swagger-jsdoc';
-import { env } from './env.js';
+import { env, getApiBaseUrl, isDeployedEnvironment } from './env.js';
+
+/**
+ * Get environment-specific server configuration
+ * Returns different servers based on deployment environment
+ */
+function getServerConfiguration() {
+  const servers = [];
+
+  // Always include the current environment's server
+  const currentEnv = env.NODE_ENV;
+  const baseUrl = getApiBaseUrl();
+
+  if (currentEnv === 'staging') {
+    servers.push({
+      url: baseUrl,
+      description: 'Public Staging Server (ngrok) - Use this for testing',
+    });
+    // Also show localhost for reference (only accessible on host machine)
+    servers.push({
+      url: `http://localhost:${env.PORT}`,
+      description: 'Local development (only accessible from host machine)',
+    });
+  } else if (currentEnv === 'production') {
+    servers.push({
+      url: baseUrl,
+      description: 'Production server',
+    });
+  } else if (currentEnv === 'development') {
+    servers.push({
+      url: `http://localhost:${env.PORT}`,
+      description: 'Development server',
+    });
+  } else {
+    // Test environment
+    servers.push({
+      url: `http://localhost:${env.PORT}`,
+      description: 'Test server',
+    });
+  }
+
+  return servers;
+}
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -10,26 +52,30 @@ const options: swaggerJsdoc.Options = {
       description: `
 # AI Assistant Backend API
 
-A production-quality AI-powered backend service that uses OpenAI function calling to intelligently route between two tools:
+${
+  isDeployedEnvironment()
+    ? `**Environment**: ${env.NODE_ENV.toUpperCase()}\n\n`
+    : ''
+}A production-quality AI-powered backend service that uses OpenAI function calling to intelligently route between two tools:
 
 - **RAG Tool**: Retrieval-Augmented Generation using Pinecone vector search for document-based questions
 - **Database Tool**: MongoDB queries for structured order data
 
 ## Features
 
-- 🤖 OpenAI function calling for intelligent tool selection
-- 📚 Vector search with Pinecone for document retrieval
-- 🗄️ MongoDB integration for structured data queries
-- ⚡ Valkey (Redis) distributed caching with singleton pattern
-- 📊 Comprehensive logging with Pino
-- 🔒 Type-safe with Zod validation
+- OpenAI function calling for intelligent tool selection
+- Vector search with Pinecone for document retrieval
+- MongoDB integration for structured data queries
+- Valkey (Redis) distributed caching with singleton pattern
+- Comprehensive logging with Pino
+- Type-safe with Zod validation
 
 ## Architecture
 
 The API uses OpenAI's function calling capability to analyze user queries and automatically select the appropriate tool:
 
-- Questions about policies, refunds, documentation → **RAG Tool** (Pinecone)
-- Questions about orders, customers, transactions → **Database Tool** (MongoDB)
+- Questions about policies, refunds, documentation -> **RAG Tool** (Pinecone)
+- Questions about orders, customers, transactions -> **Database Tool** (MongoDB)
 
 ## Example Queries
 
@@ -44,6 +90,12 @@ The API uses OpenAI's function calling capability to analyze user queries and au
 - "Find all pending orders"
 - "What orders did John Smith place?"
 - "List all completed orders from last week"
+
+${
+  isDeployedEnvironment()
+    ? `\n## Deployment Information\n\n- **Environment**: ${env.NODE_ENV}\n- **Base URL**: ${getApiBaseUrl()}\n- **Deployed**: Yes\n`
+    : ''
+}
       `,
       contact: {
         name: 'Iheb',
@@ -54,12 +106,7 @@ The API uses OpenAI's function calling capability to analyze user queries and au
         url: 'https://opensource.org/licenses/MIT',
       },
     },
-    servers: [
-      {
-        url: `http://localhost:${env.PORT}`,
-        description: 'Development server',
-      },
-    ],
+    servers: getServerConfiguration(),
     tags: [
       {
         name: 'AI Assistant',
@@ -72,10 +119,10 @@ The API uses OpenAI's function calling capability to analyze user queries and au
     ],
   },
   apis: [
-    process.env.NODE_ENV === 'production'
+    process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging'
       ? './dist/routes/*.js'
       : './src/routes/*.ts',
-    process.env.NODE_ENV === 'production'
+    process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging'
       ? './dist/controllers/*.js'
       : './src/controllers/*.ts',
   ],

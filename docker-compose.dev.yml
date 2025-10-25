@@ -1,65 +1,75 @@
+# ============================================
+# DEVELOPMENT ENVIRONMENT
+# ============================================
+# Usage: docker-compose -f docker-compose.dev.yml up
+#
+# Features:
+# - Hot reload enabled (source code mounted as volume)
+# - All logs visible
+# - Debug ports exposed
+# - Uses 'development' target from Dockerfile
+
 version: '3.8'
 
 services:
-  # Application service
+  # Application service (Development mode with hot reload)
   app:
     build:
       context: .
       dockerfile: Dockerfile
-      target: production
-    container_name: ai-assistant-app
+      target: development  # Use development stage
+    container_name: ai-assistant-app-dev
     restart: unless-stopped
     ports:
-      - '3000:3000'
+      - '3001:3000'  # Map host 3001 to container 3000
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - PORT=3000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
       - PINECONE_INDEX=${PINECONE_INDEX:-ai-assistant-docs}
-      - MONGODB_URI=mongodb://mongodb:27017/ai-assistant
+      - MONGODB_URI=${MONGODB_URI}
       - VALKEY_HOST=valkey
       - VALKEY_PORT=6379
       - VALKEY_DB=0
       - VALKEY_TTL=3600
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:delegated
+      - ./package.json:/app/package.json:delegated
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
     depends_on:
-      mongodb:
-        condition: service_started
       valkey:
         condition: service_healthy
     networks:
       - ai-assistant-network
-    healthcheck:
-      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 3s
-      start_period: 40s
-      retries: 3
 
   # MongoDB service
   mongodb:
     image: mongo:7
-    container_name: ai-assistant-mongo
+    container_name: ai-assistant-mongo-dev
     restart: unless-stopped
     ports:
       - '27017:27017'
     environment:
       MONGO_INITDB_DATABASE: ai-assistant
     volumes:
-      - mongodb_data:/data/db
+      - mongodb_dev_data:/data/db
+    command: mongod --quiet --logpath /dev/null
     networks:
       - ai-assistant-network
 
   # Valkey (Redis) service
   valkey:
     image: valkey/valkey:7.2-alpine
-    container_name: ai-assistant-valkey
+    container_name: ai-assistant-valkey-dev
     restart: unless-stopped
     ports:
       - '6379:6379'
     volumes:
-      - valkey_data:/data
+      - valkey_dev_data:/data
     command: >
       valkey-server
       --appendonly yes
@@ -74,9 +84,9 @@ services:
       retries: 3
 
 volumes:
-  mongodb_data:
+  mongodb_dev_data:
     driver: local
-  valkey_data:
+  valkey_dev_data:
     driver: local
 
 networks:

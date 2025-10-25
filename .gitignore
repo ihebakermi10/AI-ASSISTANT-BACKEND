@@ -46,3 +46,5 @@ tmp/
 *.seed
 *.pid.lock
 *.md
+/nul
+/frontend 

@@ -1,5 +1,5 @@
 import { Agent, run } from '@openai/agents';
-import { retrieveDocumentContextTool, queryDatabaseTool } from '@/tools/index.js';
+import { retrieveDocumentContextTool, queryDatabaseTool } from '@/tools/agent-tools.js';
 import { OrchestratorResult, ToolTrace } from '@/domain/types.js';
 import { logger } from '@/infra/logger.js';
 import { env } from '@/config/env.js';
@@ -96,25 +96,28 @@ export async function askOrchestrator(userQuery: string): Promise<OrchestratorRe
     // Extract tool traces from result.history
     if (result.history && Array.isArray(result.history)) {
       for (const message of result.history) {
-        if (message.role === 'assistant' && message.tool_calls) {
-          for (const toolCall of message.tool_calls) {
-            try {
-              const toolStartTime = Date.now();
-              trace.push({
-                toolName: toolCall.function.name as 'retrieveDocumentContext' | 'queryDatabase',
-                arguments: JSON.parse(toolCall.function.arguments || '{}'),
-                result: 'Tool executed successfully', // Placeholder as actual result is in next message
-                executionTime: 0, // Will be updated if we track timing
-              });
-              logger.info(
-                {
-                  toolName: toolCall.function.name,
-                  arguments: toolCall.function.arguments,
-                },
-                'Tool call detected in agent history'
-              );
-            } catch (error) {
-              logger.warn({ error, toolCall }, 'Failed to parse tool call from history');
+        // Type guard to check if message has role and tool_calls
+        if ('role' in message && message.role === 'assistant' && 'tool_calls' in message) {
+          const toolCalls = (message as any).tool_calls;
+          if (Array.isArray(toolCalls)) {
+            for (const toolCall of toolCalls) {
+              try {
+                trace.push({
+                  toolName: toolCall.function.name as 'retrieveDocumentContext' | 'queryDatabase',
+                  arguments: JSON.parse(toolCall.function.arguments || '{}'),
+                  result: 'Tool executed successfully', // Placeholder as actual result is in next message
+                  executionTime: 0, // Will be updated if we track timing
+                });
+                logger.info(
+                  {
+                    toolName: toolCall.function.name,
+                    arguments: toolCall.function.arguments,
+                  },
+                  'Tool call detected in agent history'
+                );
+              } catch (error) {
+                logger.warn({ error, toolCall }, 'Failed to parse tool call from history');
+              }
             }
           }
         }

@@ -19,7 +19,8 @@ export const createTestServer = (): TestServer => {
   const start = async () => {
     // Connect to test databases
     await mongoClient.connect();
-    await valkeyClient.connect();
+    // ValkeyClient auto-connects on instantiation (lazyConnect: false)
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Start server on random port for testing
     const port = Math.floor(Math.random() * 10000) + 50000;
@@ -49,9 +50,10 @@ export const createTestServer = (): TestServer => {
  * Clean up test data from MongoDB
  */
 export const cleanupTestData = async () => {
-  const db = mongoClient.getDb();
-  if (db) {
-    await db.dropDatabase();
+  // Use mongoose connection to drop database
+  const mongoose = mongoClient.getConnection();
+  if (mongoose.connection.db) {
+    await mongoose.connection.db.dropDatabase();
   }
 };
 
@@ -59,5 +61,5 @@ export const cleanupTestData = async () => {
  * Clean up test data from Valkey cache
  */
 export const cleanupTestCache = async () => {
-  await valkeyClient.flushdb();
+  await valkeyClient.flush();
 };

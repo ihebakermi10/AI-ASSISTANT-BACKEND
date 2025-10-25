@@ -1,11 +1,11 @@
 import Router from '@koa/router';
 import { handleAsk } from '@/controllers/ask.controller.js';
 
-const router = new Router();
+const router = new Router({ prefix: '/api/v1' });
 
 /**
  * @openapi
- * /ask:
+ * /api/v1/ask:
  *   post:
  *     summary: Ask the AI Assistant a question
  *     description: |

@@ -76,9 +76,30 @@ export async function queryPineconeIndex(
     );
 
     return matches;
-  } catch (error) {
-    logger.error({ error, topK }, 'Failed to query Pinecone index');
-    throw new Error('Failed to query Pinecone index');
+  } catch (error: any) {
+    console.error('PINECONE ERROR DETAILS:', {
+      message: error?.message,
+      name: error?.name,
+      cause: error?.cause,
+      status: error?.status,
+      data: error?.data,
+      stack: error?.stack,
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+    });
+    logger.error(
+      {
+        error: {
+          message: error?.message,
+          name: error?.name,
+          cause: error?.cause,
+          status: error?.status,
+          data: error?.data,
+        },
+        topK,
+      },
+      'Failed to query Pinecone index'
+    );
+    throw error;
   }
 }
 

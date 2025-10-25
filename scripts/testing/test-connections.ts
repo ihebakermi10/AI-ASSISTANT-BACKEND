@@ -31,11 +31,11 @@ async function testConnections(): Promise<void> {
     logger.info('Valkey delete test completed');
 
     // Summary
-    logger.info('✓ All connection tests passed successfully!');
+    logger.info('All connection tests passed successfully!');
 
     process.exit(0);
   } catch (error) {
-    logger.error({ error }, '✗ Connection tests failed');
+    logger.error({ error }, 'Connection tests failed');
     process.exit(1);
   }
 }

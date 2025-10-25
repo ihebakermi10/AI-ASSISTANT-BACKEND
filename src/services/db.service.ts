@@ -29,7 +29,27 @@ export async function queryDatabase(criteria: DatabaseQueryCriteria): Promise<an
 
     if (criteria.dateRange) {
       try {
-        const { startDate, endDate } = parseDateRange(criteria.dateRange);
+        // Handle both string and object formats for date range
+        let startDate: Date;
+        let endDate: Date;
+
+        if (typeof criteria.dateRange === 'string') {
+          const parsed = parseDateRange(criteria.dateRange);
+          startDate = parsed.startDate;
+          endDate = parsed.endDate;
+        } else if (
+          typeof criteria.dateRange === 'object' &&
+          criteria.dateRange &&
+          'startDate' in criteria.dateRange &&
+          'endDate' in criteria.dateRange
+        ) {
+          const dateRange = criteria.dateRange as { startDate: Date; endDate: Date };
+          startDate = dateRange.startDate;
+          endDate = dateRange.endDate;
+        } else {
+          throw new Error('Invalid date range format');
+        }
+
         filter.orderDate = {
           $gte: startDate,
           $lte: endDate,

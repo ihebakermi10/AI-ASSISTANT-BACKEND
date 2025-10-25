@@ -54,6 +54,11 @@ export class ValkeyCache<T> implements CacheInterface<T> {
     }
   }
 
+  // Alias for has() - some tests use exists() instead of has()
+  async exists(key: string): Promise<boolean> {
+    return this.has(key);
+  }
+
   async delete(key: string): Promise<boolean> {
     try {
       const fullKey = this.buildKey(key);

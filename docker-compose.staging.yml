@@ -1,0 +1,111 @@
+# ============================================
+# STAGING ENVIRONMENT (ngrok deployment)
+# ============================================
+# Usage: docker-compose -f docker-compose.staging.yml up -d --build
+#
+# Features:
+# - Production-like build
+# - Staging environment variables
+# - Version labels
+# - No source code mounting (immutable)
+# - Uses 'staging' target from Dockerfile
+
+version: '3.8'
+
+services:
+  # Application service (Staging mode)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: staging  # Use staging stage
+      args:
+        BUILD_DATE: ${BUILD_DATE:-}
+        VERSION: ${VERSION:-staging-latest}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    image: ai-assistant-api:${VERSION:-staging-latest}
+    container_name: ai-assistant-app-staging
+    restart: unless-stopped
+    ports:
+      - '${PORT:-3000}:3000'
+    environment:
+      # Server configuration
+      - NODE_ENV=staging
+      - PORT=${PORT:-3000}
+
+      # Deployment configuration
+      - PUBLIC_URL=${PUBLIC_URL}
+      - API_BASE_URL=${API_BASE_URL:-}
+
+      # OpenAI configuration
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-2024-05-13}
+
+      # Pinecone configuration
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_INDEX=${PINECONE_INDEX:-ai-assistant-docs}
+
+      # MongoDB configuration (Use Atlas from .env)
+      - MONGODB_URI=${MONGODB_URI}
+
+      # Valkey configuration (Docker internal)
+      - VALKEY_HOST=valkey
+      - VALKEY_PORT=6379
+      - VALKEY_DB=0
+      - VALKEY_TTL=3600
+    depends_on:
+      valkey:
+        condition: service_healthy
+    networks:
+      - ai-assistant-network
+    labels:
+      - "environment=staging"
+      - "version=${VERSION:-staging-latest}"
+      - "git.commit=${GIT_COMMIT:-unknown}"
+
+  # MongoDB service - DISABLED (using MongoDB Atlas from .env)
+  # mongodb:
+  #   image: mongo:7
+  #   container_name: ai-assistant-mongo-staging
+  #   restart: unless-stopped
+  #   ports:
+  #     - '27017:27017'
+  #   environment:
+  #     MONGO_INITDB_DATABASE: ai-assistant
+  #   volumes:
+  #     - mongodb_staging_data:/data/db
+  #   command: mongod --quiet --logpath /dev/null
+  #   networks:
+  #     - ai-assistant-network
+
+  # Valkey (Redis) service
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    container_name: ai-assistant-valkey-staging
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - valkey_staging_data:/data
+    command: >
+      valkey-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    networks:
+      - ai-assistant-network
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  # mongodb_staging_data:  # Not needed - using MongoDB Atlas
+  #   driver: local
+  valkey_staging_data:
+    driver: local
+
+networks:
+  ai-assistant-network:
+    driver: bridge

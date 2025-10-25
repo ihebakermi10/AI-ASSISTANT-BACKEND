@@ -13,7 +13,7 @@ export const logger = pino({
           colorize: true,
           translateTime: 'HH:MM:ss',
           ignore: 'pid,hostname',
-          singleLine: false,
+          singleLine: true,
         },
       },
   base: {

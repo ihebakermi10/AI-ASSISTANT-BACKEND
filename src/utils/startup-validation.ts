@@ -16,8 +16,8 @@ export async function validateStartup(): Promise<void> {
     // 1. Validate MongoDB Connection
     await validateMongoDB();
 
-    // 2. Validate Valkey/Redis Connection
-    await validateValkey();
+    // 2. Validate Valkey/Redis Connection (non-blocking - warns if fails)
+    await validateValkeyOptional();
 
     // 3. Validate Pinecone Connection
     await validatePinecone();
@@ -61,18 +61,25 @@ async function validateMongoDB(): Promise<void> {
 }
 
 /**
- * Validate Valkey/Redis connection
+ * Validate Valkey/Redis connection (optional - non-blocking)
+ * Application will work without Valkey, but caching will be disabled
+ * NOTE: Valkey is initialized in server.ts before this validation runs
  */
-async function validateValkey(): Promise<void> {
+async function validateValkeyOptional(): Promise<void> {
   try {
     logger.info('Validating Valkey connection...');
 
     const valkeyClient = ValkeyClient.getInstance();
+
+    // Check if client is ready (should be initialized by now)
+    if (!valkeyClient.isReady()) {
+      throw new Error('Valkey client not ready');
+    }
+
     const client = valkeyClient.getClient();
 
     // Test ping
     const pong = await client.ping();
-
     if (pong !== 'PONG') {
       throw new Error('Valkey ping failed');
     }
@@ -89,10 +96,13 @@ async function validateValkey(): Promise<void> {
       throw new Error('Valkey set/get test failed');
     }
 
-    logger.info('Valkey validated');
+    logger.info(' Valkey validated - caching enabled');
   } catch (error) {
-    logger.error({ error }, 'Valkey validation failed');
-    throw new Error(`Valkey validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    logger.warn(
+      { error },
+      'Valkey validation failed - application will continue without caching. To enable caching, ensure Redis/Valkey is running.'
+    );
+    // Don't throw - allow application to continue without caching
   }
 }
 

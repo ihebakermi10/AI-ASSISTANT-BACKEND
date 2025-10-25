@@ -2,11 +2,11 @@ import Router from '@koa/router';
 import { mongoClient } from '@/infra/mongo.client.js';
 import { valkeyClient } from '@/infra/valkey.client.js';
 
-const router = new Router();
+const router = new Router({ prefix: '/api/v1' });
 
 /**
  * @openapi
- * /health:
+ * /api/v1/health:
  *   get:
  *     summary: Health check endpoint
  *     description: Check if the API server is running and all dependencies are healthy
@@ -66,7 +66,7 @@ router.get('/health', async (ctx) => {
 
 /**
  * @openapi
- * /:
+ * /api/v1:
  *   get:
  *     summary: API welcome endpoint
  *     description: Returns basic information about the API
@@ -100,8 +100,8 @@ router.get('/', async (ctx) => {
     description: 'AI-powered backend with OpenAI function calling, RAG (Pinecone), and Database (MongoDB) tools',
     documentation: '/docs',
     endpoints: {
-      ask: 'POST /ask - Ask the AI Assistant a question',
-      health: 'GET /health - Health check',
+      ask: 'POST /api/v1/ask - Ask the AI Assistant a question',
+      health: 'GET /api/v1/health - Health check',
       docs: 'GET /docs - API documentation (Swagger UI)',
     },
   };

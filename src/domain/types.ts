@@ -1,7 +1,15 @@
 import { z } from 'zod';
 
 export const AskRequestSchema = z.object({
-  query: z.string().min(1, 'Query cannot be empty').max(500, 'Query too long'),
+  query: z
+    .string({
+      required_error: 'Query is required',
+      invalid_type_error: 'Query must be a string',
+    })
+    .min(1, 'Query cannot be empty')
+    .max(500, 'Query too long')
+    .trim()
+    .min(1, 'Query cannot be empty'),
 });
 
 export type AskRequest = z.infer<typeof AskRequestSchema>;

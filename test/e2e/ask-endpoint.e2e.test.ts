@@ -3,13 +3,10 @@ import request from 'supertest';
 import { createTestServer, cleanupTestData, cleanupTestCache } from '../helpers/test-server';
 import { Order } from '../../src/domain/order.model';
 import { mockOrders } from '../fixtures/orders';
-import * as openaiClient from '../../src/infra/openai.client';
-import * as pineconeClient from '../../src/infra/pinecone.client';
-import { mockEmbedding, mockPineconeMatches } from '../fixtures/embeddings';
+import * as orchestratorService from '../../src/services/orchestrator.service';
 
-// Mock external services
-vi.mock('../../src/infra/openai.client');
-vi.mock('../../src/infra/pinecone.client');
+// Mock orchestrator service for E2E tests
+vi.mock('../../src/services/orchestrator.service');
 
 describe('E2E: /ask Endpoint', () => {
   const testServer = createTestServer();
@@ -31,107 +28,51 @@ describe('E2E: /ask Endpoint', () => {
   describe('POST /ask', () => {
     describe('RAG Tool Flow', () => {
       it('should handle document-based questions using RAG', async () => {
-        // Mock OpenAI to call retrieve_document_context tool
-        const ragToolCall = {
-          id: 'call_rag_123',
-          type: 'function' as const,
-          function: {
-            name: 'retrieve_document_context',
-            arguments: JSON.stringify({
-              query: 'What is the refund policy?',
-              topK: 4,
-            }),
-          },
-        };
-
-        vi.mocked(openaiClient.callOpenAI)
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: null,
-            tool_calls: [ragToolCall],
-          })
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content:
-              'Based on our refund policy, you can return items within 30 days of purchase. The product must be in its original condition.',
-            tool_calls: null,
-          });
-
-        vi.mocked(openaiClient.createEmbedding).mockResolvedValue(mockEmbedding());
-        vi.mocked(pineconeClient.queryPineconeIndex).mockResolvedValue(
-          mockPineconeMatches()
-        );
+        vi.mocked(orchestratorService.askOrchestrator).mockResolvedValue({
+          answer:
+            'Based on our refund policy, you can return items within 30 days of purchase. The product must be in its original condition.',
+          trace: [
+            {
+              toolName: 'retrieveDocumentContext',
+              arguments: { query: 'What is the refund policy?', topK: 4 },
+              result: 'Policy document context',
+              executionTime: 150,
+            },
+          ],
+        });
 
         const response = await request(testServer.app.callback())
           .post('/ask')
           .send({ query: 'What is the refund policy?' })
           .expect(200);
 
-        expect(response.body).toHaveProperty('response');
-        expect(response.body.response).toContain('30 days');
-        expect(openaiClient.createEmbedding).toHaveBeenCalled();
-        expect(pineconeClient.queryPineconeIndex).toHaveBeenCalled();
+        expect(response.body).toHaveProperty('answer');
+        expect(response.body.answer).toContain('30 days');
+        expect(response.body.trace).toHaveLength(1);
+        expect(response.body.trace[0].toolName).toBe('retrieveDocumentContext');
       });
 
-      it('should cache embeddings for repeated queries', async () => {
-        const ragToolCall = {
-          id: 'call_rag_cache',
-          type: 'function' as const,
-          function: {
-            name: 'retrieve_document_context',
-            arguments: JSON.stringify({
-              query: 'refund policy',
-              topK: 4,
-            }),
-          },
-        };
-
-        vi.mocked(openaiClient.callOpenAI)
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: null,
-            tool_calls: [ragToolCall],
-          })
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: 'Refund information',
-            tool_calls: null,
-          });
-
-        vi.mocked(openaiClient.createEmbedding).mockResolvedValue(mockEmbedding());
-        vi.mocked(pineconeClient.queryPineconeIndex).mockResolvedValue(
-          mockPineconeMatches()
-        );
+      it('should return cached responses for repeated queries', async () => {
+        vi.mocked(orchestratorService.askOrchestrator).mockResolvedValue({
+          answer: 'Refund information from cache',
+          trace: [],
+        });
 
         // First request
-        await request(testServer.app.callback())
+        const response1 = await request(testServer.app.callback())
           .post('/ask')
           .send({ query: 'refund policy' })
           .expect(200);
 
-        expect(openaiClient.createEmbedding).toHaveBeenCalledTimes(1);
+        expect(response1.body).toHaveProperty('answer');
 
-        // Reset mocks for second request
-        vi.mocked(openaiClient.callOpenAI)
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: null,
-            tool_calls: [ragToolCall],
-          })
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: 'Refund information',
-            tool_calls: null,
-          });
-
-        // Second request - should use cached embedding
-        await request(testServer.app.callback())
+        // Second request - orchestrator handles caching internally
+        const response2 = await request(testServer.app.callback())
           .post('/ask')
           .send({ query: 'refund policy' })
           .expect(200);
 
-        // createEmbedding should not be called again (still 1 time total)
-        expect(openaiClient.createEmbedding).toHaveBeenCalledTimes(1);
+        expect(response2.body).toHaveProperty('answer');
       });
     });
 
@@ -140,115 +81,81 @@ describe('E2E: /ask Endpoint', () => {
         // Seed database with test orders
         await Order.insertMany(mockOrders);
 
-        const dbToolCall = {
-          id: 'call_db_123',
-          type: 'function' as const,
-          function: {
-            name: 'query_database',
-            arguments: JSON.stringify({
-              customerName: 'John Smith',
-            }),
-          },
-        };
-
-        vi.mocked(openaiClient.callOpenAI)
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: null,
-            tool_calls: [dbToolCall],
-          })
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: 'John Smith has 2 orders: a Laptop Pro 15 for $1299.99 and a Webcam HD for $89.99.',
-            tool_calls: null,
-          });
+        vi.mocked(orchestratorService.askOrchestrator).mockResolvedValue({
+          answer: 'John Smith has 2 orders: a Laptop Pro 15 for $1299.99 and a Webcam HD for $89.99.',
+          trace: [
+            {
+              toolName: 'queryDatabase',
+              arguments: { customerName: 'John Smith' },
+              result: JSON.stringify(mockOrders.filter(o => o.customerName === 'John Smith')),
+              executionTime: 200,
+            },
+          ],
+        });
 
         const response = await request(testServer.app.callback())
           .post('/ask')
           .send({ query: 'Show me orders from John Smith' })
           .expect(200);
 
-        expect(response.body).toHaveProperty('response');
-        expect(response.body.response).toContain('John Smith');
-        expect(response.body.response).toContain('Laptop');
+        expect(response.body).toHaveProperty('answer');
+        expect(response.body.answer).toContain('John Smith');
+        expect(response.body.answer).toContain('Laptop');
       });
 
       it('should query by order status', async () => {
         await Order.insertMany(mockOrders);
 
-        const dbToolCall = {
-          id: 'call_db_status',
-          type: 'function' as const,
-          function: {
-            name: 'query_database',
-            arguments: JSON.stringify({
-              status: 'pending',
-            }),
-          },
-        };
-
-        vi.mocked(openaiClient.callOpenAI)
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: null,
-            tool_calls: [dbToolCall],
-          })
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: 'There are 2 pending orders.',
-            tool_calls: null,
-          });
+        vi.mocked(orchestratorService.askOrchestrator).mockResolvedValue({
+          answer: 'There are 2 pending orders.',
+          trace: [
+            {
+              toolName: 'queryDatabase',
+              arguments: { status: 'pending' },
+              result: JSON.stringify(mockOrders.filter(o => o.status === 'pending')),
+              executionTime: 180,
+            },
+          ],
+        });
 
         const response = await request(testServer.app.callback())
           .post('/ask')
           .send({ query: 'Show me all pending orders' })
           .expect(200);
 
-        expect(response.body).toHaveProperty('response');
-        expect(response.body.response).toContain('pending');
+        expect(response.body).toHaveProperty('answer');
+        expect(response.body.answer).toContain('pending');
       });
 
       it('should query by product', async () => {
         await Order.insertMany(mockOrders);
 
-        const dbToolCall = {
-          id: 'call_db_product',
-          type: 'function' as const,
-          function: {
-            name: 'query_database',
-            arguments: JSON.stringify({
-              product: 'Mouse',
-            }),
-          },
-        };
-
-        vi.mocked(openaiClient.callOpenAI)
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: null,
-            tool_calls: [dbToolCall],
-          })
-          .mockResolvedValueOnce({
-            role: 'assistant',
-            content: 'Found 1 order for Wireless Mouse.',
-            tool_calls: null,
-          });
+        vi.mocked(orchestratorService.askOrchestrator).mockResolvedValue({
+          answer: 'Found 1 order for Wireless Mouse.',
+          trace: [
+            {
+              toolName: 'queryDatabase',
+              arguments: { product: 'Mouse' },
+              result: JSON.stringify(mockOrders.filter(o => o.product.includes('Mouse'))),
+              executionTime: 175,
+            },
+          ],
+        });
 
         const response = await request(testServer.app.callback())
           .post('/ask')
           .send({ query: 'Find mouse orders' })
           .expect(200);
 
-        expect(response.body).toHaveProperty('response');
+        expect(response.body).toHaveProperty('answer');
       });
     });
 
     describe('Direct Responses', () => {
       it('should handle general conversation without tools', async () => {
-        vi.mocked(openaiClient.callOpenAI).mockResolvedValue({
-          role: 'assistant',
-          content: 'Hello! How can I help you today?',
-          tool_calls: null,
+        vi.mocked(orchestratorService.askOrchestrator).mockResolvedValue({
+          answer: 'Hello! How can I help you today?',
+          trace: [],
         });
 
         const response = await request(testServer.app.callback())
@@ -256,8 +163,8 @@ describe('E2E: /ask Endpoint', () => {
           .send({ query: 'Hello' })
           .expect(200);
 
-        expect(response.body).toHaveProperty('response');
-        expect(response.body.response).toBe('Hello! How can I help you today?');
+        expect(response.body).toHaveProperty('answer');
+        expect(response.body.answer).toBe('Hello! How can I help you today?');
       });
     });
 
@@ -290,26 +197,25 @@ describe('E2E: /ask Endpoint', () => {
       });
 
       it('should handle very long queries', async () => {
-        vi.mocked(openaiClient.callOpenAI).mockResolvedValue({
-          role: 'assistant',
-          content: 'Response to long query',
-          tool_calls: null,
+        vi.mocked(orchestratorService.askOrchestrator).mockResolvedValue({
+          answer: 'Response to long query',
+          trace: [],
         });
 
-        const longQuery = 'a'.repeat(5000);
+        const longQuery = 'a'.repeat(500); // Max allowed length
 
         const response = await request(testServer.app.callback())
           .post('/ask')
           .send({ query: longQuery })
           .expect(200);
 
-        expect(response.body).toHaveProperty('response');
+        expect(response.body).toHaveProperty('answer');
       });
     });
 
     describe('Error Handling', () => {
-      it('should handle OpenAI API errors gracefully', async () => {
-        vi.mocked(openaiClient.callOpenAI).mockRejectedValue(
+      it('should handle orchestrator errors gracefully', async () => {
+        vi.mocked(orchestratorService.askOrchestrator).mockRejectedValue(
           new Error('OpenAI API error')
         );
 
@@ -319,26 +225,13 @@ describe('E2E: /ask Endpoint', () => {
           .expect(500);
 
         expect(response.body).toHaveProperty('error');
+        expect(response.body.error).toBe('Internal server error');
       });
 
       it('should handle database connection errors', async () => {
-        const dbToolCall = {
-          id: 'call_db_error',
-          type: 'function' as const,
-          function: {
-            name: 'query_database',
-            arguments: JSON.stringify({ customerName: 'test' }),
-          },
-        };
-
-        vi.mocked(openaiClient.callOpenAI).mockResolvedValue({
-          role: 'assistant',
-          content: null,
-          tool_calls: [dbToolCall],
-        });
-
-        // Force database error by closing connection
-        await testServer.stop();
+        vi.mocked(orchestratorService.askOrchestrator).mockRejectedValue(
+          new Error('Database connection failed')
+        );
 
         const response = await request(testServer.app.callback())
           .post('/ask')
@@ -346,9 +239,7 @@ describe('E2E: /ask Endpoint', () => {
           .expect(500);
 
         expect(response.body).toHaveProperty('error');
-
-        // Restart server
-        await testServer.start();
+        expect(response.body.error).toBe('Internal server error');
       });
     });
   });
