@@ -1,202 +1,222 @@
 # AI Assistant Backend
 
-## Overview
+A production-quality AI-powered backend service built with TypeScript, Node.js, and Koa that demonstrates OpenAI function calling to intelligently route between two tools:
 
-This project implements a small AI-powered backend service designed to demonstrate advanced function calling capabilities with the OpenAI API. It integrates two distinct tools: a RAG (Retrieval-Augmented Generation) Tool utilizing Pinecone as a vector database, and a Database Tool for querying structured records from a MongoDB collection via Mongoose.
-
-This project serves as a technical assessment for a Senior AI Engineer position, showcasing proficiency in:
-*   Designing and implementing a clean backend in TypeScript and Node.js (using Koa).
-*   Integrating OpenAI function calling to dynamically choose the appropriate tool based on user queries.
-*   Combining unstructured (RAG) and structured (Database) data sources.
-*   Adhering to professional engineering practices, including Git version control, robust architecture, and comprehensive documentation.
-
-## Scenario
-
-The AI Assistant API is built for an internal analytics platform. Its primary role is to interpret user queries in natural language and intelligently decide which backend tool to utilize for generating a response.
-
-**Example Queries:**
-*   "What does the refund policy say about cancellations?" → *Uses the RAG Tool (Pinecone).*
-*   "Show me all orders placed by John Smith last month." → *Uses the Database Tool (MongoDB).*
+- **RAG Tool**: Retrieval-Augmented Generation using Pinecone vector search
+- **Database Tool**: MongoDB queries via Mongoose for structured order data
 
 ## Features
 
-### 1. RAG Tool (Retrieval-Augmented Generation)
-*   **Function:** `async function retrieveDocumentContext(query: string): Promise<string>`
-*   **Description:** Vectorizes user queries using OpenAI embeddings, performs a similarity search in Pinecone, and returns top N context snippets as a concatenated string. This enables answering questions about specific documents (e.g., product manuals, FAQs, policy documents).
+- OpenAI function calling for intelligent tool selection
+- Vector search with Pinecone for document retrieval
+- MongoDB integration for structured data queries
+- Clean SOLID architecture with clear separation of concerns
+- Comprehensive logging with Pino
+- Valkey (Redis) distributed caching with singleton pattern
+- Input validation with Zod
+- TypeScript with strict mode
+- ESLint + Prettier for code quality
+- Docker Compose for local development
 
-### 2. Database Tool
-*   **Function:** `async function queryDatabase(criteria: Record<string, any>): Promise<any[]>`
-*   **Description:** Connects to a MongoDB collection via Mongoose, queries data based on user-specified criteria (e.g., customer name, date, product), and returns matching documents in JSON format. Populated with sample records for demonstration.
+## Architecture
 
-### 3. Function Calling Orchestrator
-*   **Logic:** Receives a user query, calls the OpenAI Chat Completion API with function definitions for both tools, allowing the model to decide which function to call and with what arguments. It then executes the selected function and returns an AI-generated answer, including results and explanations.
-*   **Example Flow:**
-    1.  User → “Find all orders from Sarah last week.”
-    2.  Model → Chooses to call `queryDatabase({ customerName: "Sarah", dateRange: "last week" })`.
-    3.  Application executes the query, returns data to the model.
-    4.  Model composes the final response and returns it to the client.
+```
+ai-assistant-backend/
+├── src/
+│   ├── app.ts                      # Koa app setup
+│   ├── server.ts                   # Server initialization
+│   ├── index.ts                    # Entry point
+│   ├── routes/
+│   │   └── ask.route.ts            # API routes
+│   ├── controllers/
+│   │   └── ask.controller.ts       # Request handlers
+│   ├── services/
+│   │   ├── orchestrator.service.ts # Function calling logic
+│   │   ├── rag.service.ts          # Pinecone RAG implementation
+│   │   └── db.service.ts           # MongoDB queries
+│   ├── infra/
+│   │   ├── openai.client.ts        # OpenAI SDK wrapper
+│   │   ├── pinecone.client.ts        # Pinecone SDK wrapper
+│   │   ├── mongo.client.ts         # MongoDB connection
+│   │   ├── valkey.client.ts        # Valkey (Redis) singleton client
+│   │   └── logger.ts               # Pino logger
+│   ├── domain/
+│   │   ├── order.model.ts          # Mongoose schema
+│   │   └── types.ts                # TypeScript types
+│   ├── utils/
+│   │   ├── time.ts                 # Date parsing utilities
+│   │   └── cache.ts                # Valkey cache implementation
+│   └── config/
+│       └── env.ts                  # Environment validation
+├── scripts/
+│   ├── seed.ts                     # Seed MongoDB with sample data
+│   └── index-doc.ts                # Index documents to Pinecone
+├── docker/
+│   └── docker-compose.yml          # MongoDB & Valkey containers
+├── test/
+│   └── ask.e2e.test.ts             # E2E tests
+└── README.md
+```
 
-### 4. Koa API Setup
-*   **Endpoint:** `POST /api/v1/ask`
-*   **Body:** `{ "query": "User's question here" }`
-*   **Response:** JSON containing the AI’s final answer.
-*   **Technology:** Built with TypeScript and Koa.js, with code organized into modular components (routes, services, tools, etc.).
+## Prerequisites
 
-## Tech Stack
-
-*   **Backend Framework:** Node.js, Koa.js
-*   **Language:** TypeScript
-*   **AI Integration:** OpenAI API (for LLM and embeddings), OpenAI SDK for Agent and Tool development
-*   **Vector Database:** Pinecone
-*   **NoSQL Database:** MongoDB, Mongoose
-*   **Caching:** Valkey (Redis)
-*   **Logging:** Pino (structured logging)
-*   **Validation:** Zod (type-safe schema validation)
-*   **Version Control:** Git
-*   **Containerization:** Docker, Docker Compose
-*   **Testing:** Vitest (unit, integration, E2E tests)
-
-## Best Practices & Architectural Highlights
-
-This project emphasizes professional engineering practices:
-
-*   **Modular Architecture:** Code is organized into distinct modules (`routes`, `services`, `tools`, `infra`, `config`, `utils`, `domain`) promoting separation of concerns and maintainability.
-*   **TypeScript:** Ensures type safety throughout the application, reducing runtime errors and improving code quality.
-*   **Clean Code Principles:** Adherence to principles like Single Responsibility (SRP) and Dependency Inversion (DIP) within services and infrastructure layers.
-*   **OpenAI Function Calling:** Leverages OpenAI's advanced capabilities for dynamic tool selection, demonstrating intelligent AI orchestration.
-*   **RAG Implementation:** Effective use of Pinecone for efficient retrieval of context from unstructured data, enhancing AI responses.
-*   **Database Integration:** Seamless querying of structured data from MongoDB using Mongoose, showcasing robust data access patterns.
-*   **Connection Pooling:** Implicitly handled by Mongoose for MongoDB and `ioredis` for Valkey, ensuring efficient resource management.
-*   **Structured Logging (Pino):** Provides detailed, machine-readable logs for better monitoring, debugging, and analysis.
-*   **Environment Configuration (Zod):** Type-safe validation of environment variables at startup, preventing common configuration-related issues.
-*   **Caching (Valkey):** Implemented for performance optimization, reducing redundant computations or external API calls.
-*   **Containerization (Docker):** Ensures consistent development, staging, and production environments, simplifying deployment.
-*   **Comprehensive Testing (Vitest):** Includes unit, integration, and end-to-end tests to ensure reliability and correctness of the application.
-*   **API Versioning:** Endpoints are prefixed with `/api/v1/` for clear version management.
+- Node.js >= 18.0.0
+- pnpm (or npm/yarn)
+- Docker and Docker Compose (for MongoDB and Valkey)
+- OpenAI API key
+- Pinecone account and API key
+- MongoDB (via Docker or local installation)
+- Valkey/Redis (via Docker or local installation)
 
 ## Setup Instructions
 
-### Prerequisites
+### 1. Clone the Repository
 
-*   Node.js (v18 or higher)
-*   Docker & Docker Compose
-*   OpenAI API Key
-*   Pinecone API Key & Environment
-*   Git
+```bash
+git clone <repository-url>
+cd ai-assistant-backend
+```
 
-### Environment Variables
+### 2. Install Dependencies
 
-Create a `.env` file in the project root based on `.env.example`. Populate it with your specific API keys and configurations.
+```bash
+pnpm install
+```
 
-```ini
-# ============================================ 
-# SERVER CONFIGURATION
-# ============================================ 
-HOS_API_PORT=3001
-NODE_ENV=development # or staging, production
+### 3. Configure Environment Variables
 
-# ============================================ 
-# DEPLOYMENT CONFIGURATION
-# ============================================ 
-# Your ngrok public URL (used for Swagger docs)
-PUBLIC_URL=
-# Optional: Override if different from PUBLIC_URL
-API_BASE_URL=
+Create a `.env` file in the root directory:
 
-# ============================================ 
-# OPENAI CONFIGURATION
-# ============================================ 
-OPENAI_API_KEY=your-openai-api-key-here
-OPENAI_MODEL=gpt-4o-2024-05-13 # or gpt-3.5-turbo, etc.
+```bash
+cp .env.example .env
+```
 
-# ============================================ 
-# PINECONE CONFIGURATION
-# ============================================ 
-PINECONE_API_KEY=your-pinecone-api-key-here
-PINECONE_INDEX=ai-assistant-docs # Your Pinecone index name
+Edit `.env` with your credentials:
 
-# ============================================ 
-# MONGODB CONFIGURATION (Docker)
-# ============================================ 
-MONGODB_URI=mongodb://mongodb:27017/ai-assistant
+```env
+# Server Configuration
+HOST_API_PORT=3001
+NODE_ENV=development
 
-# ============================================ 
-# VALKEY CONFIGURATION (Docker)
-# ============================================ 
-VALKEY_HOST=valkey
+# OpenAI Configuration
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
+OPENAI_MODEL=gpt-4o-mini
+
+# Pinecone Configuration
+PINECONE_API_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+PINECONE_INDEX=ai-assistant-docs
+
+# MongoDB Configuration
+MONGODB_URI=mongodb://localhost:27017/ai-assistant
+
+# Valkey (Redis) Configuration
+VALKEY_HOST=localhost
 VALKEY_PORT=6379
 VALKEY_PASSWORD=
 VALKEY_DB=0
 VALKEY_TTL=3600
 ```
 
-### Docker Setup
+### 4. Set Up Pinecone
 
-The project uses Docker Compose for easy setup of the application and its dependencies (MongoDB, Valkey).
+1. Create a free account at [Pinecone](https://www.pinecone.io/)
+2. Create a new index:
+   - Name: `ai-assistant-docs`
+   - Dimensions: `1536` (for text-embedding-3-small)
+   - Metric: `cosine`
+3. Copy your API key to `.env`
 
-1.  **Build and Start Containers (Development):**
-    ```bash
-    docker-compose -f docker-compose.dev.yml build --no-cache
-    docker-compose -f docker-compose.dev.yml up -d
-    ```
-    This will build the `app` service and start `app`, `mongodb`, and `valkey` in detached mode.
+### 5. Start MongoDB and Valkey
 
-2.  **Verify Container Status:**
-    ```bash
-    docker-compose -f docker-compose.dev.yml ps
-    ```
+Using Docker Compose:
 
-### Data Ingestion (Seeding)
+```bash
+cd docker
+docker-compose up -d
+cd ..
+```
 
-To make the RAG and Database tools functional, you need to seed data:
+This will start both MongoDB and Valkey containers.
 
-1.  **Seed MongoDB (Sample Orders):**
-    ```bash
-    pnpm run seed:db
-    ```
-    This script (`scripts/ingestion/seed.ts`) populates MongoDB with sample order data.
+Verify containers are running:
 
-2.  **Seed Pinecone (Document for RAG):**
-    ```bash
-    pnpm run seed:pinecone
-    ```
-    This script (`scripts/ingestion/index-doc.ts`) processes a sample document (e.g., a refund policy) and indexes its embeddings into Pinecone.
+```bash
+docker ps
+```
 
-## How to Run Locally
+You should see `ai-assistant-mongo` and `ai-assistant-valkey` running.
 
-1.  **Install Dependencies:**
-    ```bash
-    pnpm install
-    ```
+Or use your local MongoDB and Valkey/Redis installations.
 
-2.  **Start the Application (with Docker Compose):**
-    Ensure Docker containers are running as per "Docker Setup" above. The application will be accessible on `http://localhost:3001`.
+### 6. Seed MongoDB with Sample Data
 
-3.  **Access API Documentation (Swagger UI):**
-    Open your browser to `http://localhost:3001/docs`.
+```bash
+pnpm seed
+```
 
-## API Endpoints
+This creates 10 sample orders in the database.
 
-### `POST /api/v1/ask`
+### 7. Index Sample Document to Pinecone
 
-*   **Description:** Send a natural language query to the AI Assistant. The system uses OpenAI function calling to intelligently route your question to the appropriate tool (RAG or Database).
-*   **Request Body:**
-    ```json
+```bash
+pnpm index-doc
+```
+
+This indexes a sample refund policy document to Pinecone.
+
+### 8. Run the Development Server
+
+```bash
+pnpm dev
+```
+
+The server will start at `http://localhost:3001`
+
+## API Usage
+
+### Endpoint: POST /api/v1/ask
+
+Send natural language queries to the AI assistant.
+
+**Request:**
+
+```bash
+POST http://localhost:3001/api/v1/ask
+Content-Type: application/json
+
+{
+  "query": "Your question here"
+}
+```
+
+**Response:**
+
+```json
+{
+  "query": "Your question here",
+  "answer": "AI-generated answer",
+  "trace": [
     {
-      "query": "User's natural language question here"
+      "toolName": "retrieveDocumentContext" | "queryDatabase",
+      "arguments": { ... },
+      "result": "Preview of tool result",
+      "executionTime": 1234
     }
-    ```
-*   **Example Queries:**
-    *   **RAG Tool:** `{"query": "What is the refund policy for defective products?"}`
-    *   **Database Tool:** `{"query": "Show me all orders from Sarah Johnson last week."}`
-    *   **Aggregate Query:** `{"query": "How many completed orders do we have and what's the total revenue?"}`
+  ]
+}
+```
 
-*   **Example cURL Request:**
-    ```bash
-    curl -X POST http://localhost:3001/api/v1/ask \
-      -H "Content-Type: application/json" \
-      -d '{"query": "What is the refund policy for defective products?"}'
-    ```
+## Example Queries
+
+### Example 1: RAG Tool (Document Retrieval)
+
+**Query about refund policy:**
+
+```bash
+curl -X POST http://localhost:3001/api/v1/ask \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is the refund policy for defective products?"}'
+```
 
 ## Recommendations for Enhancement
 
