@@ -7,7 +7,7 @@ if (!process.env.OPENAI_API_KEY || !process.env.MONGODB_URI) {
 }
 
 const envSchema = z.object({
-  PORT: z.string().default('3000'),
+  HOST_API_PORT: z.string().default('3000'),
   NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
 
   // Deployment configuration
@@ -38,7 +38,7 @@ export type Env = z.infer<typeof envSchema>;
 function loadEnv(): Env {
   try {
     const rawEnv = {
-      PORT: process.env.PORT,
+      HOST_API_PORT: process.env.HOST_API_PORT,
       NODE_ENV: process.env.NODE_ENV,
       PUBLIC_URL: process.env.PUBLIC_URL,
       API_BASE_URL: process.env.API_BASE_URL,
@@ -82,7 +82,7 @@ export function getApiBaseUrl(): string {
   }
 
   // Fallback to localhost for development
-  return `http://localhost:${env.PORT}`;
+  return `http://localhost:${env.HOST_API_PORT}`;
 }
 
 /**
