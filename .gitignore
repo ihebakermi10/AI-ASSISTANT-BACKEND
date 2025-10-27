@@ -48,3 +48,4 @@ tmp/
 *.md
 /nul
 /frontend 
+!readme.md
