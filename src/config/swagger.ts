@@ -19,7 +19,7 @@ function getServerConfiguration() {
     });
     // Also show localhost for reference (only accessible on host machine)
     servers.push({
-      url: `http://localhost:${env.PORT}`,
+      url: `http://localhost:${env.HOST_API_PORT}`,
       description: 'Local development (only accessible from host machine)',
     });
   } else if (currentEnv === 'production') {
@@ -29,13 +29,13 @@ function getServerConfiguration() {
     });
   } else if (currentEnv === 'development') {
     servers.push({
-      url: `http://localhost:${env.PORT}`,
+      url: `http://localhost:${env.HOST_API_PORT}`,
       description: 'Development server',
     });
   } else {
     // Test environment
     servers.push({
-      url: `http://localhost:${env.PORT}`,
+      url: `http://localhost:${env.HOST_API_PORT}`,
       description: 'Test server',
     });
   }

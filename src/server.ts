@@ -20,7 +20,7 @@ export async function startServer(): Promise<void> {
 
     // Step 4: Create and start the HTTP server
     const app = createApp();
-    const port = parseInt(env.PORT, 10);
+    const port = parseInt(env.HOST_API_PORT, 10);
 
     app.listen(port, () => {
       logger.info(
