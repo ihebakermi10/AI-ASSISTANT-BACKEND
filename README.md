@@ -58,6 +58,42 @@ ai-assistant-backend/
 └── README.md
 ```
 
+## Design Patterns & SOLID Principles
+
+This project is built with a strong emphasis on clean architecture, leveraging established design patterns and adhering to SOLID principles to ensure maintainability, scalability, and extensibility. The `orchestrator.service.ts` serves as a prime example of these practices in action.
+
+### Design Patterns
+
+*   **Singleton Pattern**: The `aiAgent` is instantiated using a lazy-loading `getAgent()` function. This ensures that the `Agent` instance is created only once upon its first request and then reused throughout the application's lifecycle. This approach conserves resources by avoiding redundant object creation and guarantees a single, consistent point of control for the AI agent's configuration and state.
+    *   **Example**: The `getAgent()` function in `src/services/orchestrator.service.ts`
+*   **Strategy Pattern (Implicit)**: The `Orchestrator` service, while not explicitly defining a Strategy interface, effectively acts as a context for the Strategy pattern. The OpenAI `Agent` is configured with a collection of `tools` (`retrieveDocumentContextTool`, `queryDatabaseTool`). Based on the user's query and the agent's internal instructions, the `Agent` dynamically selects and executes the most appropriate tool (strategy). This allows for flexible and extensible tool selection without modifying the core orchestration logic.
+    *   **Example**: The `tools` array passed to the `Agent` constructor in `src/services/orchestrator.service.ts`
+*   **Wrapper/Adapter Pattern**: Both the OpenAI `Agent` and the individual `tools` (e.g., `retrieveDocumentContextTool`, `queryDatabaseTool`) exemplify the Wrapper/Adapter pattern. The `Agent` wraps the complexities of the underlying OpenAI API interactions, providing a simplified and structured interface for defining AI behavior. Similarly, the tools adapt specific functionalities (like Pinecone RAG or MongoDB queries) to conform to the `Agent`'s expected tool interface, promoting interoperability.
+    *   **Example**: `Agent` instantiation and `tools` usage in `src/services/orchestrator.service.ts`, and the structure of tool definitions in `src/tools/agent-tools.ts`.
+
+### SOLID Principles
+
+*   **Single Responsibility Principle (SRP)**: The project's modular structure strongly adheres to SRP. For instance, `orchestrator.service.ts` is solely responsible for managing the AI agent's execution flow, caching, and tracing. It delegates specific concerns like data retrieval (RAG) or database operations to dedicated services and tools, ensuring each module has one clear reason to change.
+    *   **Example**: `orchestrator.service.ts` delegates RAG to `rag.service.ts` and database queries to `db.service.ts`.
+*   **Dependency Inversion Principle (DIP)**: The `Orchestrator` service depends on abstractions rather than concrete implementations. It interacts with the OpenAI `Agent` through its defined interface and relies on an array of `tools` (abstractions of specific functionalities). Furthermore, it imports `logger` from `src/infra/logger.ts` and `env` from `src/config/env.ts`, treating them as abstract interfaces for logging and configuration, respectively. This reduces coupling and increases flexibility.
+    *   **Example**: Imports of `logger` and `env`, and the configuration of `tools` in `src/services/orchestrator.service.ts`.
+
+## Clean Code Practices
+
+The codebase prioritizes readability, maintainability, and robustness through consistent application of clean code principles. The `orchestrator.service.ts` provides a clear illustration of these practices:
+
+*   **Meaningful Names**: Variables, functions, and classes are named descriptively, clearly conveying their purpose and intent (e.g., `userQuery`, `askOrchestrator`, `retrieveDocumentContextTool`, `agentResponseCache`). This significantly enhances code comprehension.
+*   **Clear Structure and Modularity**: Functions are kept concise and focused on a single task. The code is organized into logical modules (e.g., `services`, `infra`, `domain`, `utils`), with clear separation of concerns. Imports from specialized modules ensure that each file has a well-defined role.
+    *   **Example**: The `askOrchestrator` function's logical blocks for caching, agent execution, and error handling.
+*   **Comprehensive Structured Logging**: The project utilizes `pino` for structured logging, capturing detailed context (e.g., `query`, `cacheHit`, `totalTime`, `error` objects) at various levels (`info`, `warn`, `error`). This provides excellent observability, making debugging and monitoring in production environments much more efficient.
+    *   **Example**: `logger.info({ query: userQuery }, 'Starting orchestration with OpenAI Agent');`
+*   **Robust Error Handling**: Critical operations are wrapped in `try-catch` blocks to gracefully manage exceptions. Errors are logged with detailed stack traces, and user-friendly messages are returned, preventing application crashes and aiding in quick issue identification.
+    *   **Example**: The `try-catch` block within `askOrchestrator`.
+*   **Type Safety**: Leveraging TypeScript with strict mode and explicit type definitions (e.g., `OrchestratorResult`, `ToolTrace`) ensures type safety throughout the application. This reduces runtime errors, improves code quality, and facilitates easier refactoring.
+    *   **Example**: Type annotations for function parameters and return values in `orchestrator.service.ts`.
+*   **Early Exit/Guard Clauses**: Functions often employ early exit conditions (e.g., returning cached responses immediately) to simplify control flow and improve readability by reducing nested logic.
+    *   **Example**: The caching logic in `askOrchestrator` that returns early if a cached answer is found.
+
 ## Prerequisites
 
 - Node.js >= 18.0.0
