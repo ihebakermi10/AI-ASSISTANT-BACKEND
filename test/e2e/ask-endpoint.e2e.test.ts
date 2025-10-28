@@ -42,7 +42,7 @@ describe('E2E: /ask Endpoint', () => {
         });
 
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: 'What is the refund policy?' })
           .expect(200);
 
@@ -60,7 +60,7 @@ describe('E2E: /ask Endpoint', () => {
 
         // First request
         const response1 = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: 'refund policy' })
           .expect(200);
 
@@ -68,7 +68,7 @@ describe('E2E: /ask Endpoint', () => {
 
         // Second request - orchestrator handles caching internally
         const response2 = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: 'refund policy' })
           .expect(200);
 
@@ -94,7 +94,7 @@ describe('E2E: /ask Endpoint', () => {
         });
 
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: 'Show me orders from John Smith' })
           .expect(200);
 
@@ -119,7 +119,7 @@ describe('E2E: /ask Endpoint', () => {
         });
 
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: 'Show me all pending orders' })
           .expect(200);
 
@@ -143,7 +143,7 @@ describe('E2E: /ask Endpoint', () => {
         });
 
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: 'Find mouse orders' })
           .expect(200);
 
@@ -159,7 +159,7 @@ describe('E2E: /ask Endpoint', () => {
         });
 
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: 'Hello' })
           .expect(200);
 
@@ -171,7 +171,7 @@ describe('E2E: /ask Endpoint', () => {
     describe('Validation', () => {
       it('should reject requests without query', async () => {
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({})
           .expect(400);
 
@@ -180,7 +180,7 @@ describe('E2E: /ask Endpoint', () => {
 
       it('should reject empty query strings', async () => {
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: '' })
           .expect(400);
 
@@ -189,7 +189,7 @@ describe('E2E: /ask Endpoint', () => {
 
       it('should reject non-string queries', async () => {
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: 123 })
           .expect(400);
 
@@ -205,7 +205,7 @@ describe('E2E: /ask Endpoint', () => {
         const longQuery = 'a'.repeat(500); // Max allowed length
 
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: longQuery })
           .expect(200);
 
@@ -220,7 +220,7 @@ describe('E2E: /ask Endpoint', () => {
         );
 
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: 'test query' })
           .expect(500);
 
@@ -234,7 +234,7 @@ describe('E2E: /ask Endpoint', () => {
         );
 
         const response = await request(testServer.app.callback())
-          .post('/ask')
+          .post('/api/v1/ask')
           .send({ query: 'test' })
           .expect(500);
 
@@ -247,7 +247,7 @@ describe('E2E: /ask Endpoint', () => {
   describe('GET /health', () => {
     it('should return health status', async () => {
       const response = await request(testServer.app.callback())
-        .get('/health')
+        .get('/api/v1/health')
         .expect(200);
 
       expect(response.body).toHaveProperty('status', 'ok');
@@ -262,13 +262,23 @@ describe('E2E: /ask Endpoint', () => {
   describe('GET /', () => {
     it('should return API information', async () => {
       const response = await request(testServer.app.callback())
-        .get('/')
+        .get('/api/v1')
         .expect(200);
 
       expect(response.body).toHaveProperty('name');
       expect(response.body).toHaveProperty('version');
       expect(response.body).toHaveProperty('description');
       expect(response.body).toHaveProperty('endpoints');
+    });
+  });
+
+  describe('Temporary Test Route', () => {
+    it('should return 200 for /test', async () => {
+      const response = await request(testServer.app.callback())
+        .get('/test')
+        .expect(200);
+
+      expect(response.body).toHaveProperty('message', 'Test route works!');
     });
   });
 

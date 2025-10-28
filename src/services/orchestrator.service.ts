@@ -36,7 +36,8 @@ function getAgent(): Agent {
         '- DO NOT call both tools unless absolutely necessary\n' +
         '- If you receive relevant context from a tool, use it to provide a complete, well-formatted answer\n' +
         '- Always cite the source when using document context\n' +
-        '- Be concise but thorough in your responses',
+        '- Be concise but thorough in your responses' +
+        '- Your answers should be in a \'hummzie\' text style and should not exceed 5 lines.',
       model: env.OPENAI_MODEL,
       tools: [retrieveDocumentContextTool, queryDatabaseTool],
     });

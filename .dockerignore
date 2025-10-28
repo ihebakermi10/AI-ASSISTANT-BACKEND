@@ -58,6 +58,6 @@ tmp/
 *.pid.lock
 
 # Test files
-test/
+
 *.test.ts
 *.spec.ts
