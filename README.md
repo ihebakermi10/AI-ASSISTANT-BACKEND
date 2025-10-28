@@ -1,6 +1,6 @@
 # AI Assistant Backend
 
-A production-quality AI-powered backend service built with TypeScript, Node.js, and Koa that demonstrates OpenAI function calling to intelligently route between two tools:
+A production-quality AI-powered backend service built with TypeScript, Node.js, and Koa that demonstrates **OpenAI SDK** function calling to intelligently route between two tools:
 
 - **RAG Tool**: Retrieval-Augmented Generation using Pinecone vector search
 - **Database Tool**: MongoDB queries via Mongoose for structured order data
@@ -13,7 +13,8 @@ A production-quality AI-powered backend service built with TypeScript, Node.js, 
 - Clean SOLID architecture with clear separation of concerns
 - Comprehensive logging with Pino
 - Valkey (Redis) distributed caching with singleton pattern
-- Input validation with Zod
+*   Input validation with Zod
+*   **Robust Startup Validation:** Ensures all critical services (MongoDB, Valkey, Pinecone, OpenAI) are correctly initialized and connected before the application starts.
 - TypeScript with strict mode
 - ESLint + Prettier for code quality
 - Docker Compose for local development
@@ -328,3 +329,14 @@ The GitHub repository contains:
 *   **cURL Examples:** Provided for easy testing of the `/ask` endpoint.
 *   **Environment Variable Validation:** Using `Zod` for robust configuration management.
 *   **Multi-stage Dockerfiles:** Optimized Docker images for development, staging, and production.
+*   **Comprehensive Testing:** Implemented E2E, Integration, and Unit tests to ensure reliability and correctness.
+
+## Frontend Application
+
+This backend service is designed to work with a companion frontend application.
+
+*   **GitHub Repository:** [https://github.com/ihebakermi10/ai-assistant-frontend](https://github.com/ihebakermi10/ai-assistant-frontend)
+
+Here's a preview of the frontend AI interface:
+
+![Frontend AI Interface](ai-pic.png)

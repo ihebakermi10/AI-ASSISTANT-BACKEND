@@ -110,6 +110,15 @@ export function createApp(): Koa {
     await next();
   });
 
+    app.use(async (ctx, next) => {
+    if (ctx.path === '/test') {
+      ctx.status = 200;
+      ctx.body = { message: 'Test route works!' };
+      return;
+    }
+    await next();
+  });
+
   // Register routes with v1 prefix
   app.use(healthRouter.routes());
   app.use(healthRouter.allowedMethods());
