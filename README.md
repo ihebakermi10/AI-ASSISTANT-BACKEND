@@ -163,17 +163,21 @@ VALKEY_TTL=3600
    - Metric: `cosine`
 3. Copy your API key to `.env`
 
-### 5. Start MongoDB and Valkey
+### 5. Start Docker Containers (MongoDB, Valkey, and Application)
 
-Using Docker Compose:
+For the first time setup, or after making changes to the Dockerfile or dependencies, build and run the containers:
 
 ```bash
-cd docker
-docker-compose up -d
-cd ..
+docker-compose -f docker-compose.dev.yml up -d --build
 ```
 
-This will start both MongoDB and Valkey containers.
+If containers are already built, you can simply start them:
+
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+This will start MongoDB, Valkey, and the AI Assistant application containers.
 
 Verify containers are running:
 
@@ -181,17 +185,29 @@ Verify containers are running:
 docker ps
 ```
 
-You should see `ai-assistant-mongo` and `ai-assistant-valkey` running.
+You should see `ai-assistant-app-dev`, `ai-assistant-mongo-dev`, and `ai-assistant-valkey-dev` running.
 
 Or use your local MongoDB and Valkey/Redis installations.
 
-### 6. Seed MongoDB with Sample Data
+### 6. Seed Databases with Sample Data
+
+To ensure the RAG and Database tools have data to work with, seed MongoDB and Pinecone:
+
+**a. Seed MongoDB with Sample Orders:**
 
 ```bash
-pnpm seed
+docker-compose -f docker-compose.dev.yml exec app pnpm seed:db
 ```
 
-This creates 10 sample orders in the database.
+This creates 10 sample orders in the MongoDB database.
+
+**b. Index Sample Document to Pinecone:**
+
+```bash
+docker-compose -f docker-compose.dev.yml exec app pnpm seed:pinecone
+```
+
+This indexes a sample refund policy document to Pinecone.
 
 ### 7. Index Sample Document to Pinecone
 
