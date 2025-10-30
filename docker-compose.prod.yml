@@ -27,11 +27,11 @@ services:
     container_name: ai-assistant-app-prod
     restart: always
     ports:
-      - '${PORT:-3000}:3000'
+      - '${HOST_API_PORT:-3000}:${HOST_API_PORT:-3000}'
     environment:
       # Server configuration
       - NODE_ENV=production
-      - PORT=${PORT:-3000}
+      - HOST_API_PORT=${HOST_API_PORT:-3000}
 
       # Deployment configuration
       - PUBLIC_URL=${PUBLIC_URL}

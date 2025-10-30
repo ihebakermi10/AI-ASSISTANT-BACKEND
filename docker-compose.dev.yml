@@ -21,19 +21,19 @@ services:
     container_name: ai-assistant-app-dev
     restart: unless-stopped
     ports:
-      - '3001:3000'  # Map host 3001 to container 3000
+      - '${HOST_API_PORT:-3001}:${HOST_API_PORT:-3001}'
     environment:
-      - NODE_ENV=development
-      - PORT=3000
+      - NODE_ENV=${NODE_ENV:-development}
+      - HOST_API_PORT=${HOST_API_PORT:-3001}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-2024-05-13}
       - PINECONE_API_KEY=${PINECONE_API_KEY}
       - PINECONE_INDEX=${PINECONE_INDEX:-ai-assistant-docs}
       - MONGODB_URI=${MONGODB_URI}
-      - VALKEY_HOST=valkey
-      - VALKEY_PORT=6379
-      - VALKEY_DB=0
-      - VALKEY_TTL=3600
+      - VALKEY_HOST=${VALKEY_HOST:-valkey}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - VALKEY_DB=${VALKEY_DB:-0}
+      - VALKEY_TTL=${VALKEY_TTL:-3600}
     volumes:
       # Mount source code for hot reload
       - ./src:/app/src:delegated

@@ -27,11 +27,11 @@ services:
     container_name: ai-assistant-app-staging
     restart: unless-stopped
     ports:
-      - '${PORT:-3000}:3000'
+      - '${HOST_API_PORT:-3000}:${HOST_API_PORT:-3000}'
     environment:
       # Server configuration
       - NODE_ENV=staging
-      - PORT=${PORT:-3000}
+      - HOST_API_PORT=${HOST_API_PORT:-3000}
 
       # Deployment configuration
       - PUBLIC_URL=${PUBLIC_URL}
@@ -48,11 +48,11 @@ services:
       # MongoDB configuration (Use Atlas from .env)
       - MONGODB_URI=${MONGODB_URI}
 
-      # Valkey configuration (Docker internal)
-      - VALKEY_HOST=valkey
-      - VALKEY_PORT=6379
-      - VALKEY_DB=0
-      - VALKEY_TTL=3600
+      # Valkey configuration
+      - VALKEY_HOST=${VALKEY_HOST:-valkey}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - VALKEY_DB=${VALKEY_DB:-0}
+      - VALKEY_TTL=${VALKEY_TTL:-3600}
     depends_on:
       valkey:
         condition: service_healthy
