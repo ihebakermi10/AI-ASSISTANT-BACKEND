@@ -98,132 +98,87 @@ The codebase prioritizes readability, maintainability, and robustness through co
 ## Prerequisites
 
 - Node.js >= 18.0.0
-- pnpm (or npm/yarn)
-- Docker and Docker Compose (for MongoDB and Valkey)
-- OpenAI API key
-- Pinecone account and API key
-- MongoDB (via Docker or local installation)
-- Valkey/Redis (via Docker or local installation)
+- pnpm
+- Docker and Docker Compose
 
-## Setup Instructions
+## Setup (Start to Finish)
 
-### 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd ai-assistant-backend
-```
-
-### 2. Install Dependencies
+### 1. Install Dependencies
 
 ```bash
 pnpm install
 ```
 
-### 3. Configure Environment Variables
+### 2. Get API Keys
 
-Create a `.env` file in the root directory:
+- OpenAI: https://platform.openai.com/api-keys
+- Pinecone: https://app.pinecone.io/
+
+### 3. Create Pinecone Index
+
+Create index with:
+- Name: `ai-assistant-docs`
+- Dimensions: `1024`
+- Metric: `cosine`
+
+### 4. Configure Environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your credentials:
-
+Edit `.env` - Add your API keys:
 ```env
-# Server Configuration
-HOST_API_PORT=3001
-NODE_ENV=development
-
-# OpenAI Configuration
-OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
-OPENAI_MODEL=gpt-4o-mini
-
-# Pinecone Configuration
-PINECONE_API_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-PINECONE_INDEX=ai-assistant-docs
-
-# MongoDB Configuration
-MONGODB_URI=mongodb://localhost:27017/ai-assistant
-
-# Valkey (Redis) Configuration
-VALKEY_HOST=localhost
-VALKEY_PORT=6379
-VALKEY_PASSWORD=
-VALKEY_DB=0
-VALKEY_TTL=3600
+OPENAI_API_KEY=your_key_here
+PINECONE_API_KEY=your_key_here
 ```
 
-### 4. Set Up Pinecone
+**For Docker:** Keep `MONGODB_URI=mongodb://mongodb:...` and `VALKEY_HOST=valkey`
+**For Local:** Change to `MONGODB_URI=mongodb://localhost:...` and `VALKEY_HOST=localhost`
 
-1. Create a free account at [Pinecone](https://www.pinecone.io/)
-2. Create a new index:
-   - Name: `ai-assistant-docs`
-   - Dimensions: `1536` (for text-embedding-3-small)
-   - Metric: `cosine`
-3. Copy your API key to `.env`
+### 5. Start Services
 
-### 5. Start Docker Containers (MongoDB, Valkey, and Application)
-
-For the first time setup, or after making changes to the Dockerfile or dependencies, build and run the containers:
-
+**Docker (Recommended):**
 ```bash
 docker-compose -f docker-compose.dev.yml up -d --build
 ```
 
-If containers are already built, you can simply start them:
-
+**Local:**
 ```bash
-docker-compose -f docker-compose.dev.yml up -d
+docker run -d --name mongodb-local -p 27017:27017 mongo:7
+docker run -d --name valkey-local -p 6379:6379 valkey/valkey:7.2-alpine
 ```
 
-This will start MongoDB, Valkey, and the AI Assistant application containers.
+### 6. Seed Databases
 
-Verify containers are running:
-
-```bash
-docker ps
-```
-
-You should see `ai-assistant-app-dev`, `ai-assistant-mongo-dev`, and `ai-assistant-valkey-dev` running.
-
-Or use your local MongoDB and Valkey/Redis installations.
-
-### 6. Seed Databases with Sample Data
-
-To ensure the RAG and Database tools have data to work with, seed MongoDB and Pinecone:
-
-**a. Seed MongoDB with Sample Orders:**
-
+**Docker:**
 ```bash
 docker-compose -f docker-compose.dev.yml exec app pnpm seed:db
-```
-
-This creates 10 sample orders in the MongoDB database.
-
-**b. Index Sample Document to Pinecone:**
-
-```bash
 docker-compose -f docker-compose.dev.yml exec app pnpm seed:pinecone
 ```
 
-This indexes a sample refund policy document to Pinecone.
-
-### 7. Index Sample Document to Pinecone
-
+**Local:**
 ```bash
-pnpm index-doc
+pnpm seed:db
+pnpm seed:pinecone
 ```
 
-This indexes a sample refund policy document to Pinecone.
+### 7. Run Application
 
-### 8. Run the Development Server
-
+**Docker:** Already running
+**Local:**
 ```bash
 pnpm dev
 ```
 
-The server will start at `http://localhost:3001`
+### 8. Application Running
+
+API: http://localhost:3001
+
+Test:
+```bash
+curl -X POST http://localhost:3001/api/v1/ask -H "Content-Type: application/json" -d '{"query": "What is the refund policy?"}'
+```
 
 ## API Usage
 
@@ -263,12 +218,74 @@ Content-Type: application/json
 
 ### Example 1: RAG Tool (Document Retrieval)
 
-**Query about refund policy:**
-
 ```bash
 curl -X POST http://localhost:3001/api/v1/ask \
   -H "Content-Type: application/json" \
   -d '{"query": "What is the refund policy for defective products?"}'
+```
+
+### Example 2: Database Tool (Order Query)
+
+```bash
+curl -X POST http://localhost:3001/api/v1/ask \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Show me all pending orders"}'
+```
+
+## Common Commands
+
+### Docker Management
+
+```bash
+# Start containers
+docker-compose -f docker-compose.dev.yml up -d
+
+# Stop containers
+docker-compose -f docker-compose.dev.yml down
+
+# View logs
+docker logs ai-assistant-app-dev
+
+# Follow logs
+docker logs -f ai-assistant-app-dev
+
+# Restart containers
+docker-compose -f docker-compose.dev.yml restart
+
+# Rebuild and restart
+docker-compose -f docker-compose.dev.yml up -d --build
+```
+
+### Database Operations
+
+```bash
+# Seed MongoDB
+docker-compose -f docker-compose.dev.yml exec app pnpm seed:db
+
+# Seed Pinecone
+docker-compose -f docker-compose.dev.yml exec app pnpm seed:pinecone
+
+# Access MongoDB shell
+docker exec -it ai-assistant-mongo-dev mongosh ai-assistant
+
+# Access Valkey CLI
+docker exec -it ai-assistant-valkey-dev valkey-cli
+```
+
+### Development
+
+```bash
+# Run locally
+pnpm dev
+
+# Build
+pnpm build
+
+# Lint code
+pnpm lint
+
+# Format code
+pnpm format
 ```
 
 ## Further Enhancements and Best Practices
